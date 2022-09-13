@@ -1,6 +1,6 @@
 #! /bin/bash
 
-HOME_DIR=$(dirname $0)
+HOME_DIR="$(dirname "$(cd "$(dirname "${BASH_SOURCE:-$0}")" && pwd)")"
 SRC_FILE=${1}
 DST_FILE=${2}
 TMP_DIR=${HOME_DIR}/tmp
