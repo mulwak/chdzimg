@@ -1,13 +1,22 @@
 #! /bin/bash
 
-SRC_FILE=${1}
-BMP_FILE=${FILE_NAME%.*}.bmp
 HOME_DIR=$(dirname $0)
-TMP_DIR=${HOME_DIR}/tmp
+SRC_FILE=${1}
 DST_FILE=${2}
+TMP_DIR=${HOME_DIR}/tmp
+BMP_FILE_NAME=$(basename ${SRC_FILE%.*}).bmp
+BMP_FILE=${TMP_DIR}"/"${BMP_FILE_NAME}
+COLORS_FILE=${HOME_DIR}"/colors16.png"
+
+#echo "HOME_DIR:"$HOME_DIR
+#echo "SRC_FILE:"$SRC_FILE
+#echo "DST_FILE:"$DST_FILE
+#echo "TMP_DIR :"$TMP_DIR
+#echo "BMP_FILE_NAME:"$BMP_FILE_NAME
+#echo "BMP_FILE:"$BMP_FILE
 
 mkdir ${TMP_DIR} -p
-convert +dither ${BMP_FILE} -map colors16.png -flip bmp3:${TMP_DIR}/${BMP_FILE}
+convert +dither ${SRC_FILE} -map ${COLORS_FILE} -flip bmp3:${BMP_FILE}
 
-${HOME_DIR}/bin/bmp2nibble ${TMP_DIR}/${BMP_FILE} ${DST_FILE}
+${HOME_DIR}/bin/bmp2nibble ${BMP_FILE} ${DST_FILE}
 
