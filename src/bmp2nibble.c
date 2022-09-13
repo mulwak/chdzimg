@@ -45,9 +45,12 @@ int  main(int argc, char *argv[])
   //fprintf(stderr, "BMPv3 image -> ChDz16C nibblemap Converter.\n" ) ;
 
   sprintf(src_name, "%s", argv[1]);     // ソースBMPのファイル名を取得
+  /*
   p=strrchr(argv[1],'.');               // ファイル名の後ろから検索をかけて.を見つける
   if(p!=NULL)*p=0x00;                   // .を削除して拡張子を切り離す
   sprintf(dst_name, "%s.bin", argv[1]); // .binに拡張子を変更して出力先名にする
+  */
+  sprintf(dst_name, "%s", argv[2]);     // 出力先のファイル名を取得
 
   if( (src_fileptr = fopen( src_name, "rb" )) == NULL )
   {
