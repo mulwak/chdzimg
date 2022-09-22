@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <stdbool.h>
 
 int readFileHeader(FILE * fp);
 int readInfoHeader(FILE * fp, int *width, int *height);
@@ -35,61 +37,79 @@ char chdzindex[16] = {'!', '!', '!', '!', '!', '!', '!', '!', '!', '!', '!', '!'
 
 int  main(int argc, char *argv[])
 {
-  FILE  *src_fileptr, *dst_fileptr;
-  char  src_name[100], dst_name[100];
-  int   fileheader_size, infoheader_size;
-  int   width, height, padding;
-  unsigned char r, r_high, r_low;
-  char  *p;
+  // 変数宣言
+  FILE  *src_fileptr, *dst_fileptr,         // 入出力のファイルポインタ
+  FILE  *tmp_fileptr[3];                    // 一時ファイルのファイルポインタ
+  char  src_name[100], dst_name[100];       // ファイル名
+  int   fileheader_size, infoheader_size;   // 二種のヘッダサイズ
+  int   width, height, padding;             // 画像の寸法
+  unsigned char bytedata,                   // バイトデータ
+                bytedata_high,
+                bytedata_low;
+  //char  *p;
+  int opt;                                  // コマンドラインオプション処理用
+  bool opt_4x = false;                      // 4倍解像度オプション
 
   //fprintf(stderr, "BMPv3 image -> ChDz16C nibblemap Converter.\n" ) ;
 
-  sprintf(src_name, "%s", argv[1]);     // ソースBMPのファイル名を取得
-  /*
-  p=strrchr(argv[1],'.');               // ファイル名の後ろから検索をかけて.を見つける
-  if(p!=NULL)*p=0x00;                   // .を削除して拡張子を切り離す
-  sprintf(dst_name, "%s.bin", argv[1]); // .binに拡張子を変更して出力先名にする
-  */
-  sprintf(dst_name, "%s", argv[2]);     // 出力先のファイル名を取得
+  // オプション処理
+  while ((opt=getopt(argc,argv,"4"))!=-1){  // ハイフンオプションを取得
+    switch(opt){
+      case '4':
+        opt_4x = true;
+        break;
+      default:
+      return 1;
+    }
 
-  if( (src_fileptr = fopen( src_name, "rb" )) == NULL )
-  {
+  }
+  sprintf(src_name, "%s", argv[optind]);     // ソースBMPのファイル名を取得
+  sprintf(dst_name, "%s", argv[optind+1]);   // 出力先のファイル名を取得
+
+  // 入力ファイルをオープン
+  if((src_fileptr=fopen(src_name, "rb"))==NULL){
     fprintf( stderr, "ファイル%sが開けません\n", src_name ) ;
     return 1 ;
   }
-
-  if( (dst_fileptr = fopen( dst_name, "wb" )) == NULL )
-  {
+  // 出力ファイルをオープン
+  if((dst_fileptr=fopen(dst_name, "wb"))==NULL){
     fprintf( stderr, "ファイル%sが開けません\n", dst_name ) ;
     return 1 ;
   }
+  // 一時ファイルをオープン
+  if(opt_4x&&
 
+  // ヘッダ処理
   fileheader_size = readFileHeader( src_fileptr ) ;
   //fprintf(stderr, "File_Header_Size: %d\n", fileheader_size ) ;
   infoheader_size = readInfoHeader( src_fileptr, &width, &height ) ;
   //fprintf(stderr, "Info_Header_Size: %d\n", infoheader_size ) ;
   //fprintf(stderr, "画像サイズ：%d(横)×%d(縦)\n", width, height ) ;
+  // 画像形式チェック
   if(width%2)fprintf(stderr,"[わー]横サイズがバイト列形式に適合しません");
   padding=4-(width/2)%4;
   if(padding==4)padding=0;
   //fprintf(stderr, "パディング：%dバイト\n", padding ) ;
 
+  // 行ループ
   for(int i=0; i<height; i++){
+    // 行内ループ
     for(int j=0; j<width/2; j++){
-      if( fread(&r, 1, 1, src_fileptr) != 1){
+      if( fread(&bytedata, 1, 1, src_fileptr) != 1){
         fprintf( stderr, "Data_Read_Error @ i=%d, j=%d\n", i, j) ;
         fclose( src_fileptr ) ;
         exit( 1 ) ;
       }
-      r_high = chdzindex[(r & 0xF0) >> 4];
-      r_low = chdzindex[r & 0x0F];
-      r = (r_high << 4) | r_low;
-      if(fwrite(&r, sizeof(r), 1, dst_fileptr) < 1){
+      bytedata_high = chdzindex[(bytedata & 0xF0) >> 4];
+      bytedata_low  = chdzindex[bytedata & 0x0F];
+      bytedata      = (bytedata_high << 4) | bytedata_low;
+      if(fwrite(&bytedata, sizeof(bytedata), 1, dst_fileptr) < 1){
         fprintf( stderr, "データ書き込み失敗\n" ) ;
       }
     }
+    // 行末パディングの読み飛ばし
     for(int j=0; j<padding; j++){
-      if( fread(&r, 1, 1, src_fileptr) != 1){
+      if( fread(&bytedata, 1, 1, src_fileptr) != 1){
         fprintf( stderr, "Data_Read_Error @ i=%d, j=%d\n", i, j) ;
         fclose( src_fileptr ) ;
         exit( 1 ) ;
