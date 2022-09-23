@@ -10,6 +10,7 @@
 
 int readFileHeader(FILE * fp, int opt_verbose);
 int readInfoHeader(FILE * fp,  int opt_verbose, int *width, int *height);
+int readColorPallet(FILE *fp, int opt_verbose);
 void close_and_exit();
 
 static const struct{
@@ -25,7 +26,7 @@ char chdzindex[16] = {'!', '!', '!', '!', '!', '!', '!', '!', '!', '!', '!', '!'
 FILE  *src_fileptr, *dst_fileptr;          // 入出力のファイルポインタ
 
 
-int  main(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
   // 変数宣言
   FILE  *work_fileptr, *tmp_fileptr[4];     // 作業用ポインタ、一時ファイルのファイルポインタ
@@ -78,11 +79,16 @@ int  main(int argc, char *argv[])
     }
   }
 
-  // ヘッダ処理
+  // ファイルヘッダ取得
   if(readFileHeader(src_fileptr,opt_verbose))
     fprintf(stderr,"Read_BITMAPFILEHEADER_Error\n");
+  // 情報ヘッダ取得
   if(readInfoHeader(src_fileptr,opt_verbose, &width, &height))
     fprintf(stderr,"Read_BITMAPINFOHEADER_Error\n");
+  // カラーパレット取得
+  if(readColorPallet(src_fileptr,opt_verbose))
+    fprintf(stderr,"Read_ColorPallet_Error\n");
+  // 画像寸法
   if(opt_verbose)fprintf(stderr, "Image_Size：%d(H)×%d(V)\n", width, height);
   // 画像形式チェック
   if(height%4)fprintf(stderr,"[わー]縦サイズが4の倍数ではありません");
@@ -180,7 +186,7 @@ int readInfoHeader(FILE *fp, int opt_verbose, int *width, int *height)
   // BITMAPINFOHEADER のサイズ
   // Windows BMPファイルのみ受付
   if(fread(&tmp_long, sizeof(tmp_long), 1, fp) != 1)return -1;
-  if( tmp_long != 40 ){
+  if(tmp_long != 40){
     fprintf(stderr, "Not a Windows BMP file\n");
     return -1;
   }
@@ -201,7 +207,7 @@ int readInfoHeader(FILE *fp, int opt_verbose, int *width, int *height)
   // 4ビットカラーのみ受付
   if(fread(&tmp_short, sizeof(tmp_short), 1, fp) != 1)return -1;
   if(opt_verbose)fprintf(stderr, "  BitCount      : %d [bit]\n", tmp_short);
-  if( tmp_short != 4 ){
+  if(tmp_short != 4){
     fprintf(stderr, "4bitカラーではありません\n");
     return -1;
   }
@@ -232,10 +238,15 @@ int readInfoHeader(FILE *fp, int opt_verbose, int *width, int *height)
   // 重要な色の数 0の場合すべての色
   if(fread(&tmp_long, sizeof(tmp_long), 1, fp) != 1)return -1;
 
-  // カラーパレット取得
+  return 0;
+}
+
+// カラーパレット取得
+int readColorPallet(FILE *fp, int opt_verbose){
+  unsigned char tmp_char[4];
   for(int i=0; i<16; i++){
     if(fread(&tmp_char, sizeof(tmp_char), 4, fp) != 4)return -1;
-    if(opt_verbose)fprintf(stderr, "pallet[%2d]:%2x %2x %2x", i, tmp_char[0], tmp_char[1], tmp_char[2]);
+    if(opt_verbose)fprintf(stderr, "BMP_Pallet[%2d]:%2x %2x %2x", i, tmp_char[0], tmp_char[1], tmp_char[2]);
     // パレットテーブルの検索
     for(int j=0; j<16; j++){
       if(chdzcolortable[j].r==tmp_char[2]&&
@@ -243,15 +254,15 @@ int readInfoHeader(FILE *fp, int opt_verbose, int *width, int *height)
          chdzcolortable[j].b==tmp_char[0]){
         // インデックスを登録
         chdzindex[i]=j;
-        if(opt_verbose)fprintf(stderr, "\tchdzindex[%2x]=%2x", i, chdzindex[i]);
+        if(opt_verbose)fprintf(stderr, "\t-> chdzindex[%2x]=%2x", i, chdzindex[i]);
       }
     }
     if(opt_verbose)fprintf(stderr, "\n");
   }
-
   return 0;
 }
 
+// ファイルI/Oエラー用
 void close_and_exit(){
   fclose(src_fileptr);
   fclose(dst_fileptr);
