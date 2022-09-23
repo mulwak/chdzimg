@@ -33,9 +33,8 @@ int main(int argc, char *argv[])
   char  src_name[100], dst_name[100];       // ファイル名
   int   width, height, padding;             // 画像の寸法
   unsigned char bytedata;                   // バイトデータ
-  //char  *p;
   int opt;                                  // コマンドラインオプション処理用
-  bool opt_4x = false,                      // 4倍解像度オプション
+  bool opt_4x     = false,                  // 4倍解像度オプション
        opt_verbose = false;                 // 冗長メッセージ
 
   if(opt_verbose)fprintf(stderr, "BMPv3 image -> ChDz16C nibblemap Converter.\n");
@@ -246,7 +245,7 @@ int readColorPallet(FILE *fp, int opt_verbose){
   unsigned char tmp_char[4];
   if(opt_verbose)fprintf(stderr, "BMP_Pallet -> chdzindex\n");
   for(int i=0; i<16; i++){
-    //if(fread(&tmp_char, sizeof(tmp_char), 4, fp) != 4)return -1;
+    if(fread(&tmp_char, sizeof(tmp_char[0]), 4, fp) != 4)return -1;
     if(opt_verbose)fprintf(stderr, "  [%2d] = (%2x,%2x,%2x)", i, tmp_char[0], tmp_char[1], tmp_char[2]);
     // パレットテーブルの検索
     for(int j=0; j<16; j++){
