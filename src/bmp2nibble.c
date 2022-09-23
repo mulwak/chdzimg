@@ -8,8 +8,8 @@
 #include <unistd.h>
 #include <stdbool.h>
 
-int readFileHeader(FILE * fp);
-int readInfoHeader(FILE * fp, int *width, int *height);
+int readFileHeader(FILE * fp, int opt_verbose);
+int readInfoHeader(FILE * fp,  int opt_verbose, int *width, int *height);
 void close_and_exit();
 
 static const struct{
@@ -50,15 +50,19 @@ int  main(int argc, char *argv[])
                 bytedata_low;
   //char  *p;
   int opt;                                  // コマンドラインオプション処理用
-  bool opt_4x = false;                      // 4倍解像度オプション
+  bool opt_4x = false,                      // 4倍解像度オプション
+       opt_verbose = false;                 // 冗長メッセージ
 
-  //fprintf(stderr, "BMPv3 image -> ChDz16C nibblemap Converter.\n" ) ;
+  if(opt_verbose)fprintf(stderr, "BMPv3 image -> ChDz16C nibblemap Converter.\n");
 
   // オプション処理
-  while ((opt=getopt(argc,argv,"4"))!=-1){  // ハイフンオプションを取得
+  while ((opt=getopt(argc,argv,"4v"))!=-1){  // ハイフンオプションを取得
     switch(opt){
       case '4':
         opt_4x = true;                      // 4倍解像度モード
+        break;
+      case 'v':
+        opt_verbose = true;
         break;
       default:
       return 1;
@@ -91,17 +95,18 @@ int  main(int argc, char *argv[])
   }
 
   // ヘッダ処理
-  fileheader_size = readFileHeader(src_fileptr);
-  //fprintf(stderr, "File_Header_Size: %d\n", fileheader_size);
-  infoheader_size = readInfoHeader(src_fileptr, &width, &height);
-  //fprintf(stderr, "Info_Header_Size: %d\n", infoheader_size);
-  //fprintf(stderr, "Image_Size：%d(H)×%d(V)\n", width, height);
+  fileheader_size = readFileHeader(src_fileptr,opt_verbose);
+  if(opt_verbose)fprintf(stderr, "File_Header_Size: %d\n", fileheader_size);
+  infoheader_size = readInfoHeader(src_fileptr,opt_verbose, &width, &height);
+  if(opt_verbose)fprintf(stderr, "Info_Header_Size: %d\n", infoheader_size);
+  if(opt_verbose)fprintf(stderr, "Image_Size：%d(H)×%d(V)\n", width, height);
   // 画像形式チェック
   if(height%4)fprintf(stderr,"[わー]縦サイズが4の倍数ではありません");
   if(width%2)fprintf(stderr,"[わー]横サイズがバイト列形式に適合しません");
+  // BMPのパディングの大きさを算出
   padding=4-(width/2)%4;
   if(padding==4)padding=0;
-  //fprintf(stderr, "Padding: %d [Bytes]\n", padding);
+  if(opt_verbose)fprintf(stderr, "Padding: %d [Bytes]\n", padding);
 
   // 行ループ
   for(int i=0; i<height; i++){
@@ -155,7 +160,7 @@ int  main(int argc, char *argv[])
   return 0;
 }
 
-int readFileHeader(FILE *fp)
+int readFileHeader(FILE *fp, int opt_verbose)
 {
   int   count = 0;
   int   var_long;
@@ -164,22 +169,17 @@ int readFileHeader(FILE *fp)
 
   /* BMPシグネチャ "BM" */
   if (fread(s, 2, 1, fp) == 1){
-    /*
-    if (memcmp(s, "BM", 2) == 0)
-      fprintf(stderr, "[BM] BITMAP file\n");
-    else{
-      */
     if (memcmp(s, "BM", 2) != 0){
       fprintf(stderr, "%s : Not a BMP file\n", s);
       close_and_exit();
     }
     count += 2;
   }
-  //fprintf(stderr, "BITMAPFILEHEADER\n");
+  if(opt_verbose)fprintf(stderr, "BITMAPFILEHEADER\n");
 
   /* ファイルサイズ */
   if (fread(&var_long, 4, 1, fp) == 1) {
-    //fprintf(stderr, "  Size          : %d [Byte]\n", var_long);
+    if(opt_verbose)fprintf(stderr, "  Size          : %d [Byte]\n", var_long);
     count += 4;
   }
   /* 予約領域 */
@@ -192,14 +192,14 @@ int readFileHeader(FILE *fp)
 
   /* ファイルの先頭から画像データまでの位置 */
   if (fread(&var_long, 4, 1, fp) == 1) {
-    //fprintf(stderr, "  OffBits       : %d [Byte]\n", var_long);
+    if(opt_verbose)fprintf(stderr, "  OffBits       : %d [Byte]\n", var_long);
     count += 4;
   }
 
   return count;
 }
 
-int readInfoHeader(FILE *fp, int *width, int *height)
+int readInfoHeader(FILE *fp, int opt_verbose, int *width, int *height)
 {
   int           count = 0;
   int           var_long, compress = 0;
@@ -220,13 +220,13 @@ int readInfoHeader(FILE *fp, int *width, int *height)
   /* Windows BMP */
   /* 画像データの幅 */
   if (fread(&var_long, 4, 1, fp) == 1) {
-    //fprintf(stderr, "  Width         : %d [pixel]\n", var_long);
+    if(opt_verbose)fprintf(stderr, "  Width         : %d [pixel]\n", var_long);
     *width = var_long;
     count += 4;
   }
   /* 画像データの高さ */
   if (fread(&var_long, 4, 1, fp) == 1) {
-    //fprintf(stderr, "  Height        : %d [pixel]\n", var_long);
+    if(opt_verbose)fprintf(stderr, "  Height        : %d [pixel]\n", var_long);
     *height = var_long;
     count += 4;
   }
@@ -237,7 +237,7 @@ int readInfoHeader(FILE *fp, int *width, int *height)
   /* 1画素あたりのビット数 (1, 4, 8, 24, 32)  */
   /* 4ビットカラーのみ受付          */
   if (fread(&var_short, 2, 1, fp) == 1) {
-    //fprintf(stderr, "  BitCount      : %d [bit]\n", var_short);
+    if(opt_verbose)fprintf(stderr, "  BitCount      : %d [bit]\n", var_short);
     if( var_short != 4 ){
       fprintf(stderr, "4bitカラーではありません\n");
       fclose(fp) ;
@@ -249,7 +249,7 @@ int readInfoHeader(FILE *fp, int *width, int *height)
   /*           1 : BI_RLE8 8bit RunLength 圧縮  */
   /*           2 : BI_RLE4 4bit RunLength 圧縮  */
   if (fread(&var_long, 4, 1, fp) == 1) {
-    //fprintf(stderr, "  Compression   : %d\n", var_long);
+    if(opt_verbose)fprintf(stderr, "  Compression   : %d\n", var_long);
     compress = var_long;
     count += 4;
     if( var_long != 0 ){
@@ -260,22 +260,22 @@ int readInfoHeader(FILE *fp, int *width, int *height)
   }
   /* 画像データのサイズ */
   if (fread(&var_long, 4, 1, fp) == 1) {
-    //fprintf(stderr, "  SizeImage     : %d [Byte]\n", var_long);
+    if(opt_verbose)fprintf(stderr, "  SizeImage     : %d [Byte]\n", var_long);
     count += 4;
   }
   /* 横方向解像度 (Pixel/meter) */
   if (fread(&var_long, 4, 1, fp) == 1) {
-    //fprintf(stderr, "  XPelsPerMeter : %d [pixel/m]\n", var_long);
+    if(opt_verbose)fprintf(stderr, "  XPelsPerMeter : %d [pixel/m]\n", var_long);
     count += 4;
   }
   /* 縦方向解像度 (Pixel/meter) */
   if (fread(&var_long, 4, 1, fp) == 1) {
-    //fprintf(stderr, "  YPelsPerMeter : %d [pixel/m]\n", var_long);
+    if(opt_verbose)fprintf(stderr, "  YPelsPerMeter : %d [pixel/m]\n", var_long);
     count += 4;
   }
   /* 使用色数 */
   if (fread(&var_long, 4, 1, fp) == 1) {
-    //fprintf(stderr, "  ClrUsed       : %d [color]\n", var_long);
+    if(opt_verbose)fprintf(stderr, "  ClrUsed       : %d [color]\n", var_long);
     count += 4;
   }
   /* 重要な色の数 0の場合すべての色 */
@@ -285,14 +285,14 @@ int readInfoHeader(FILE *fp, int *width, int *height)
   /* カラーパレット取得 */
   for(int i=0; i<16; i++){
     if(fread(&var_char, 1, 4, fp) == 4){
-      //fprintf(stderr, "pallet[%d]:%x %x %x\n", i, var_char[0], var_char[1], var_char[2]);
+      if(opt_verbose)fprintf(stderr, "pallet[%d]:%x %x %x\n", i, var_char[0], var_char[1], var_char[2]);
       // パレットテーブルの検索
       for(int j=0; j<16; j++){
         if(chdzcolortable[j].r==var_char[2] && chdzcolortable[j].g==var_char[1] &&
             chdzcolortable[j].b==var_char[0]){
           // インデックスを登録
           chdzindex[i]=j;
-          //fprintf(stderr, "chdzindex[%x]=%x\n", i, chdzindex[i]);
+          if(opt_verbose)fprintf(stderr, "chdzindex[%x]=%x\n", i, chdzindex[i]);
         }
       }
     }
