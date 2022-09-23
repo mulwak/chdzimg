@@ -10,6 +10,7 @@
 
 int readFileHeader(FILE * fp);
 int readInfoHeader(FILE * fp, int *width, int *height);
+void close_and_exit();
 
 static const struct{
   unsigned char r, g, b;
@@ -33,13 +34,14 @@ static const struct{
   {0x00, 0x00, 0x00}
 };
 
+FILE  *src_fileptr, *dst_fileptr;          // 入出力のファイルポインタ
+
 char chdzindex[16] = {'!', '!', '!', '!', '!', '!', '!', '!', '!', '!', '!', '!', '!', '!', '!', '!'};
 
 int  main(int argc, char *argv[])
 {
   // 変数宣言
-  FILE  *src_fileptr, *dst_fileptr,         // 入出力のファイルポインタ
-  FILE  *tmp_fileptr[3];                    // 一時ファイルのファイルポインタ
+  FILE  *work_fileptr, *tmp_fileptr[4];     // 作業用ポインタ、一時ファイルのファイルポインタ
   char  src_name[100], dst_name[100];       // ファイル名
   int   fileheader_size, infoheader_size;   // 二種のヘッダサイズ
   int   width, height, padding;             // 画像の寸法
@@ -56,7 +58,7 @@ int  main(int argc, char *argv[])
   while ((opt=getopt(argc,argv,"4"))!=-1){  // ハイフンオプションを取得
     switch(opt){
       case '4':
-        opt_4x = true;
+        opt_4x = true;                      // 4倍解像度モード
         break;
       default:
       return 1;
@@ -68,59 +70,89 @@ int  main(int argc, char *argv[])
 
   // 入力ファイルをオープン
   if((src_fileptr=fopen(src_name, "rb"))==NULL){
-    fprintf( stderr, "ファイル%sが開けません\n", src_name ) ;
-    return 1 ;
+    fprintf(stderr, "File_Open_Error: %s\n", src_name) ;
+    return 1;
   }
   // 出力ファイルをオープン
   if((dst_fileptr=fopen(dst_name, "wb"))==NULL){
-    fprintf( stderr, "ファイル%sが開けません\n", dst_name ) ;
-    return 1 ;
+    fprintf(stderr, "File_Open_Error: %s\n", dst_name) ;
+    fclose(src_fileptr);
+    return 1;
   }
   // 一時ファイルをオープン
-  if(opt_4x&&
+  if(opt_4x){
+    tmp_fileptr[0]=dst_fileptr;
+    for(int i=1;i<4;i++){
+      if((tmp_fileptr[i]=tmpfile())==NULL){
+        fprintf(stderr, "TMP_files_Open_Error\n") ;
+        close_and_exit();
+      }
+    }
+  }
 
   // ヘッダ処理
-  fileheader_size = readFileHeader( src_fileptr ) ;
-  //fprintf(stderr, "File_Header_Size: %d\n", fileheader_size ) ;
-  infoheader_size = readInfoHeader( src_fileptr, &width, &height ) ;
-  //fprintf(stderr, "Info_Header_Size: %d\n", infoheader_size ) ;
-  //fprintf(stderr, "画像サイズ：%d(横)×%d(縦)\n", width, height ) ;
+  fileheader_size = readFileHeader(src_fileptr);
+  //fprintf(stderr, "File_Header_Size: %d\n", fileheader_size);
+  infoheader_size = readInfoHeader(src_fileptr, &width, &height);
+  //fprintf(stderr, "Info_Header_Size: %d\n", infoheader_size);
+  //fprintf(stderr, "Image_Size：%d(H)×%d(V)\n", width, height);
   // 画像形式チェック
+  if(height%4)fprintf(stderr,"[わー]縦サイズが4の倍数ではありません");
   if(width%2)fprintf(stderr,"[わー]横サイズがバイト列形式に適合しません");
   padding=4-(width/2)%4;
   if(padding==4)padding=0;
-  //fprintf(stderr, "パディング：%dバイト\n", padding ) ;
+  //fprintf(stderr, "Padding: %d [Bytes]\n", padding);
 
   // 行ループ
   for(int i=0; i<height; i++){
+    // 4xオプションオンなら、対応する一時ファイルに書き込む
+    work_fileptr=opt_4x?tmp_fileptr[i%4]:dst_fileptr;
     // 行内ループ
     for(int j=0; j<width/2; j++){
-      if( fread(&bytedata, 1, 1, src_fileptr) != 1){
-        fprintf( stderr, "Data_Read_Error @ i=%d, j=%d\n", i, j) ;
-        fclose( src_fileptr ) ;
-        exit( 1 ) ;
+      if(fread(&bytedata, sizeof(bytedata), 1, src_fileptr) != 1){
+        fprintf(stderr, "SRC_Read_Error@ i=%d, j=%d\n", i, j);
+        close_and_exit();
       }
       bytedata_high = chdzindex[(bytedata & 0xF0) >> 4];
       bytedata_low  = chdzindex[bytedata & 0x0F];
       bytedata      = (bytedata_high << 4) | bytedata_low;
-      if(fwrite(&bytedata, sizeof(bytedata), 1, dst_fileptr) < 1){
-        fprintf( stderr, "データ書き込み失敗\n" ) ;
+      if(fwrite(&bytedata, sizeof(bytedata), 1, work_fileptr) != 1){
+        fprintf(stderr, "DST_Write_Error@ i=%d, j=%d\n", i, j);
+        close_and_exit();
       }
     }
     // 行末パディングの読み飛ばし
     for(int j=0; j<padding; j++){
-      if( fread(&bytedata, 1, 1, src_fileptr) != 1){
-        fprintf( stderr, "Data_Read_Error @ i=%d, j=%d\n", i, j) ;
-        fclose( src_fileptr ) ;
-        exit( 1 ) ;
+      if(fread(&bytedata, sizeof(bytedata), 1, src_fileptr) != 1){
+        fprintf(stderr, "Padding_Read_Error@ i=%d, j=%d\n", i, j);
+        close_and_exit();
       }
     }
   }
 
-  fclose( src_fileptr ) ;
-  fclose( dst_fileptr ) ;
+  // 分割出力を統合する
+  if(opt_4x){
+    // 画面ループ
+    for(int i=1;i<4;i++){
+      fseek(tmp_fileptr[i],0L,SEEK_SET);                // 先頭に戻る
+      // 画面内ループ
+      for(int j=0;j<height*(width/2);j++){
+        if(fread(&bytedata, sizeof(bytedata), 1, tmp_fileptr[i]) != 1){
+          fprintf(stderr, "TMP_Read_Error@ i=%d, j=%d\n", i, j);
+          close_and_exit();
+        }
+        if(fwrite(&bytedata, sizeof(bytedata), 1, tmp_fileptr[0]) != 1){
+          fprintf(stderr, "TMP_Write_Error@ i=%d, j=%d\n", i, j);
+          close_and_exit();
+        }
+      }
+    }
+  }
 
-  return 0 ;
+  // 終了処理
+  fclose(src_fileptr);
+  fclose(dst_fileptr);
+  return 0;
 }
 
 int readFileHeader(FILE *fp)
@@ -139,8 +171,7 @@ int readFileHeader(FILE *fp)
       */
     if (memcmp(s, "BM", 2) != 0){
       fprintf(stderr, "%s : Not a BMP file\n", s);
-      fclose(fp);
-      exit(1);
+      close_and_exit();
     }
     count += 2;
   }
@@ -182,7 +213,6 @@ int readInfoHeader(FILE *fp, int *width, int *height)
     if( var_long != 40 ){
       fprintf(stderr, "Not a Windows BMP file\n");
       fclose( fp ) ;
-      exit(1);
     }
   }
 
@@ -210,7 +240,7 @@ int readInfoHeader(FILE *fp, int *width, int *height)
     //fprintf(stderr, "  BitCount      : %d [bit]\n", var_short);
     if( var_short != 4 ){
       fprintf(stderr, "4bitカラーではありません\n");
-      fclose( fp ) ;
+      fclose(fp) ;
       exit(1);
     }
     count += 2;
@@ -224,7 +254,7 @@ int readInfoHeader(FILE *fp, int *width, int *height)
     count += 4;
     if( var_long != 0 ){
       fprintf(stderr, "非圧縮モードではありません\n");
-      fclose( fp ) ;
+      fclose(fp) ;
       exit(1);
     }
   }
@@ -269,5 +299,11 @@ int readInfoHeader(FILE *fp, int *width, int *height)
   }
 
   return count;
+}
+
+void close_and_exit(){
+  fclose(src_fileptr);
+  fclose(dst_fileptr);
+  exit(1);
 }
 

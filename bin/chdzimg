@@ -18,5 +18,5 @@ COLORS_FILE=${HOME_DIR}"/colors16.png"
 mkdir ${TMP_DIR} -p
 convert +dither ${SRC_FILE} -map ${COLORS_FILE} -flip bmp3:${BMP_FILE}
 
-${HOME_DIR}/bin/bmp2nibble ${BMP_FILE} ${DST_FILE}
+${HOME_DIR}/bin/bmp2nibble -4 ${BMP_FILE} ${DST_FILE}
 
