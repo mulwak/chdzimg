@@ -15,23 +15,10 @@ void close_and_exit();
 static const struct{
   unsigned char r, g, b;
 }chdzcolortable[]={
-  {0x00, 0x00, 0x00},
-  {0x00, 0x55, 0x00},
-  {0x00, 0xAA, 0x00},
-  {0x00, 0xFF, 0x00},
-  {0x00, 0x00, 0xFF},
-  {0x00, 0x55, 0xFF},
-  {0x00, 0xAA, 0xFF},
-  {0x00, 0xFF, 0xFF},
-  {0xFF, 0x00, 0x00},
-  {0xFF, 0x55, 0x00},
-  {0xFF, 0xAA, 0x00},
-  {0xFF, 0xFF, 0x00},
-  {0xFF, 0x00, 0xFF},
-  {0xFF, 0x55, 0xFF},
-  {0xFF, 0xAA, 0xFF},
-  {0xFF, 0xFF, 0xFF},
-  {0x00, 0x00, 0x00}
+  {0x00, 0x00, 0x00}, {0x00, 0x55, 0x00}, {0x00, 0xAA, 0x00}, {0x00, 0xFF, 0x00},
+  {0x00, 0x00, 0xFF}, {0x00, 0x55, 0xFF}, {0x00, 0xAA, 0xFF}, {0x00, 0xFF, 0xFF},
+  {0xFF, 0x00, 0x00}, {0xFF, 0x55, 0x00}, {0xFF, 0xAA, 0x00}, {0xFF, 0xFF, 0x00},
+  {0xFF, 0x00, 0xFF}, {0xFF, 0x55, 0xFF}, {0xFF, 0xAA, 0xFF}, {0xFF, 0xFF, 0xFF}
 };
 
 FILE  *src_fileptr, *dst_fileptr;          // 入出力のファイルポインタ
@@ -45,9 +32,7 @@ int  main(int argc, char *argv[])
   char  src_name[100], dst_name[100];       // ファイル名
   int   fileheader_size, infoheader_size;   // 二種のヘッダサイズ
   int   width, height, padding;             // 画像の寸法
-  unsigned char bytedata,                   // バイトデータ
-                bytedata_high,
-                bytedata_low;
+  unsigned char bytedata;                   // バイトデータ
   //char  *p;
   int opt;                                  // コマンドラインオプション処理用
   bool opt_4x = false,                      // 4倍解像度オプション
@@ -62,7 +47,7 @@ int  main(int argc, char *argv[])
         opt_4x = true;                      // 4倍解像度モード
         break;
       case 'v':
-        opt_verbose = true;
+        opt_verbose = true;                 // 詳細メッセージ
         break;
       default:
       return 1;
@@ -118,9 +103,8 @@ int  main(int argc, char *argv[])
         fprintf(stderr, "SRC_Read_Error@ i=%d, j=%d\n", i, j);
         close_and_exit();
       }
-      bytedata_high = chdzindex[(bytedata & 0xF0) >> 4];
-      bytedata_low  = chdzindex[bytedata & 0x0F];
-      bytedata      = (bytedata_high << 4) | bytedata_low;
+      bytedata=chdzindex[(bytedata&0xF0>>4)]<<4 // 上位ニブル
+              |chdzindex[bytedata&0x0F];        // 下位ニブル
       if(fwrite(&bytedata, sizeof(bytedata), 1, work_fileptr) != 1){
         fprintf(stderr, "DST_Write_Error@ i=%d, j=%d\n", i, j);
         close_and_exit();
@@ -167,7 +151,7 @@ int readFileHeader(FILE *fp, int opt_verbose)
   short var_short;
   char  s[10];
 
-  /* BMPシグネチャ "BM" */
+  // BMPシグネチャ "BM"
   if (fread(s, 2, 1, fp) == 1){
     if (memcmp(s, "BM", 2) != 0){
       fprintf(stderr, "%s : Not a BMP file\n", s);
@@ -177,20 +161,20 @@ int readFileHeader(FILE *fp, int opt_verbose)
   }
   if(opt_verbose)fprintf(stderr, "BITMAPFILEHEADER\n");
 
-  /* ファイルサイズ */
+  // ファイルサイズ
   if (fread(&var_long, 4, 1, fp) == 1) {
     if(opt_verbose)fprintf(stderr, "  Size          : %d [Byte]\n", var_long);
     count += 4;
   }
-  /* 予約領域 */
+  // 予約領域
   if (fread(&var_short, 2, 1, fp) == 1)
     count += 2;
 
-  /* 予約領域 */
+  // 予約領域
   if (fread(&var_short, 2, 1, fp) == 1)
     count += 2;
 
-  /* ファイルの先頭から画像データまでの位置 */
+  // ファイルの先頭から画像データまでの位置
   if (fread(&var_long, 4, 1, fp) == 1) {
     if(opt_verbose)fprintf(stderr, "  OffBits       : %d [Byte]\n", var_long);
     count += 4;
@@ -206,8 +190,8 @@ int readInfoHeader(FILE *fp, int opt_verbose, int *width, int *height)
   short         var_short;
   unsigned char var_char[4];
 
-  /* BITMAPINFOHEADER のサイズ  */
-  /* Windows BMPファイルのみ受付  */
+  // BITMAPINFOHEADER のサイズ
+  // Windows BMPファイルのみ受付
   if (fread(&var_long, 4, 1, fp) == 1) {
     count += 4;
     if( var_long != 40 ){
@@ -217,25 +201,25 @@ int readInfoHeader(FILE *fp, int opt_verbose, int *width, int *height)
   }
 
   //fprintf(stderr, "BITMAPINFOHEADER\n");
-  /* Windows BMP */
-  /* 画像データの幅 */
+  // Windows BMP
+  // 画像データの幅
   if (fread(&var_long, 4, 1, fp) == 1) {
     if(opt_verbose)fprintf(stderr, "  Width         : %d [pixel]\n", var_long);
     *width = var_long;
     count += 4;
   }
-  /* 画像データの高さ */
+  // 画像データの高さ
   if (fread(&var_long, 4, 1, fp) == 1) {
     if(opt_verbose)fprintf(stderr, "  Height        : %d [pixel]\n", var_long);
     *height = var_long;
     count += 4;
   }
-  /* プレーン数 (1のみ) */
+  // プレーン数 (1のみ)
   if (fread(&var_short, 2, 1, fp) == 1) {
     count += 2;
   }
-  /* 1画素あたりのビット数 (1, 4, 8, 24, 32)  */
-  /* 4ビットカラーのみ受付          */
+  // 1画素あたりのビット数 (1, 4, 8, 24, 32)
+  // 4ビットカラーのみ受付
   if (fread(&var_short, 2, 1, fp) == 1) {
     if(opt_verbose)fprintf(stderr, "  BitCount      : %d [bit]\n", var_short);
     if( var_short != 4 ){
@@ -245,9 +229,11 @@ int readInfoHeader(FILE *fp, int opt_verbose, int *width, int *height)
     }
     count += 2;
   }
-  /* 圧縮方式  0 : 無圧縮             */
-  /*           1 : BI_RLE8 8bit RunLength 圧縮  */
-  /*           2 : BI_RLE4 4bit RunLength 圧縮  */
+  /*
+   * 圧縮方式  0 : 無圧縮
+   *           1 : BI_RLE8 8bit RunLength 圧縮
+   *           2 : BI_RLE4 4bit RunLength 圧縮
+   */
   if (fread(&var_long, 4, 1, fp) == 1) {
     if(opt_verbose)fprintf(stderr, "  Compression   : %d\n", var_long);
     compress = var_long;
@@ -258,31 +244,31 @@ int readInfoHeader(FILE *fp, int opt_verbose, int *width, int *height)
       exit(1);
     }
   }
-  /* 画像データのサイズ */
+  // 画像データのサイズ */
   if (fread(&var_long, 4, 1, fp) == 1) {
     if(opt_verbose)fprintf(stderr, "  SizeImage     : %d [Byte]\n", var_long);
     count += 4;
   }
-  /* 横方向解像度 (Pixel/meter) */
+  // 横方向解像度 (Pixel/meter)
   if (fread(&var_long, 4, 1, fp) == 1) {
     if(opt_verbose)fprintf(stderr, "  XPelsPerMeter : %d [pixel/m]\n", var_long);
     count += 4;
   }
-  /* 縦方向解像度 (Pixel/meter) */
+  // 縦方向解像度 (Pixel/meter)
   if (fread(&var_long, 4, 1, fp) == 1) {
     if(opt_verbose)fprintf(stderr, "  YPelsPerMeter : %d [pixel/m]\n", var_long);
     count += 4;
   }
-  /* 使用色数 */
+  // 使用色数
   if (fread(&var_long, 4, 1, fp) == 1) {
     if(opt_verbose)fprintf(stderr, "  ClrUsed       : %d [color]\n", var_long);
     count += 4;
   }
-  /* 重要な色の数 0の場合すべての色 */
+  // 重要な色の数 0の場合すべての色
   if (fread(&var_long, 4, 1, fp) == 1)
     count += 4;
 
-  /* カラーパレット取得 */
+  // カラーパレット取得
   for(int i=0; i<16; i++){
     if(fread(&var_char, 1, 4, fp) == 4){
       if(opt_verbose)fprintf(stderr, "pallet[%d]:%x %x %x\n", i, var_char[0], var_char[1], var_char[2]);
