@@ -245,7 +245,7 @@ int readInfoHeader(FILE *fp, int opt_verbose, int *width, int *height)
 // カラーパレット取得
 int readColorPallet(FILE *fp, int opt_verbose){
   unsigned char tmp_char[4];
-  if(opt_verbose)fprintf(stderr, "BMP_Pallet -> chdzindex\n");
+  if(opt_verbose)fprintf(stderr, "BMP_Pallet          -> chdzindex\n");
   for(int i=0; i<16; i++){
     if(fread(&tmp_char, sizeof(tmp_char[0]), 4, fp) != 4)return -1;
     if(opt_verbose)fprintf(stderr, "  [%2d] = (%2x,%2x,%2x)", i, tmp_char[0], tmp_char[1], tmp_char[2]);
@@ -256,7 +256,7 @@ int readColorPallet(FILE *fp, int opt_verbose){
          chdzcolortable[j].b==tmp_char[0]){
         // インデックスを登録
         chdzindex[i]=j;
-        if(opt_verbose)fprintf(stderr, " -> [%2x] = %2x", i, chdzindex[i]);
+        if(opt_verbose)fprintf(stderr, " ->   [%2x] = %2x", i, chdzindex[i]);
       }
     }
     if(opt_verbose)fprintf(stderr, "\n");
