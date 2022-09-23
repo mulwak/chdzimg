@@ -53,6 +53,8 @@ int main(int argc, char *argv[])
     }
 
   }
+
+  // ファイル名取得
   sprintf(src_name, "%s", argv[optind]);     // ソースBMPのファイル名を取得
   sprintf(dst_name, "%s", argv[optind+1]);   // 出力先のファイル名を取得
 
