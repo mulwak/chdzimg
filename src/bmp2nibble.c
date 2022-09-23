@@ -141,7 +141,7 @@ int  main(int argc, char *argv[])
     for(int i=1;i<4;i++){
       fseek(tmp_fileptr[i],0L,SEEK_SET);                // 先頭に戻る
       // 画面内ループ
-      for(int j=0;j<height*(width/2);j++){
+      for(int j=0;j<(height*(width/2)/4);j++){
         if(fread(&bytedata, sizeof(bytedata), 1, tmp_fileptr[i]) != 1){
           fprintf(stderr, "TMP_Read_Error@ i=%d, j=%d\n", i, j);
           close_and_exit();
