@@ -34,11 +34,11 @@ rm ${DST_DIR}/* -f
 
 # 連番画像にする
 ffmpeg -loglevel warning -progress - -i ${SRC_FILE} -r 2 -t 90 -s 256:192 ${TMP_DIR}"/%04d.png" |
-  awk '/frame=/{printf("\r%s",$0); system("");}'
+  awk 'BEGIN{FS="="}/frame=/{printf("\rCroppedImage:%s",$2); system("");}'
 
 echo ""
 
-COUNTER=1
+COUNTER=1 # 進捗表示用カウンタ
 
 # 画像ごとのループ
 while read -d $'\0' fnum; do
