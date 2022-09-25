@@ -1,0 +1,67 @@
+#! /bin/bash
+
+#
+# 動画をchdz用連番画像（いずれは一体型ファイル）に変換
+# chdzutl本体に統合したい
+#
+
+HOME_DIR="$(dirname "$(cd "$(dirname "${BASH_SOURCE:-$0}")" && pwd)")"
+SRC_FILE=${1}
+DST_FILE=${2}
+DST_DIR=${DST_FILE%.*} # 統合動画ファイルが実現したら不要
+TMP_DIR=${HOME_DIR}/tmp
+COLORS_FILE=${HOME_DIR}"/colors16.png"
+
+CONV_OPTS_DEFAULT="+dither"
+CONV_OPTS_ANIME="+dither -convolve '0 -1 0, -1 5 -1, 0 -1 0'"
+CONV_OPTS_DITHER=""
+CONV_OPTS=${CONV_OPTS_DEFAULT}
+
+#echo "HOME_DIR:"$HOME_DIR
+#echo "SRC_FILE:"$SRC_FILE
+#echo "DST_FILE:"$DST_FILE
+#echo "DST_DIR:"$DST_DIR
+#echo "TMP_DIR :"$TMP_DIR
+
+# 作業ディレクトリの用意
+mkdir ${TMP_DIR} -p
+rm ${TMP_DIR}/*
+
+# 出力ディレクトリの用意
+# 統合動画ファイルが実現したら不要
+mkdir ${DST_DIR} -p
+rm ${DST_DIR}/* -f
+
+# 連番画像にする
+ffmpeg -loglevel warning -progress - -i ${SRC_FILE} -r 2 -t 90 -s 256:192 ${TMP_DIR}"/%04d.png" |
+  awk '/frame=/{printf("\r%s",$0); system("");}'
+
+echo ""
+
+COUNTER=1
+
+# 画像ごとのループ
+while read -d $'\0' fnum; do
+  PNG_FILE=${fnum}
+  BMP_FILE_NAME=$(basename ${PNG_FILE%.*}).bmp
+  BMP_FILE=${TMP_DIR}"/"${BMP_FILE_NAME}
+  OUT_FILE_NAME=${BMP_FILE_NAME%.*}
+  OUT_FILE=${DST_FILE%.*}"/"${OUT_FILE_NAME}.IMF
+  #echo "PNG_FILE:"$PNG_FILE
+  #echo "BMP_FILE:"$BMP_FILE
+  #echo -ne "OUT_FILE_NAME:"$OUT_FILE_NAME"\r"
+  #echo "OUT_FILE:"$OUT_FILE
+
+  # 縮退減色bmp
+  convert ${PNG_FILE} ${CONV_OPTS} -map ${COLORS_FILE} -flip bmp3:${BMP_FILE}
+
+  # chdz形式ニブルマップ
+  ${HOME_DIR}/bin/bmp2nibble ${BMP_FILE} ${OUT_FILE}
+
+  # 進捗表示
+  echo -ne "\rImageConvert:"${COUNTER}
+  COUNTER=$((COUNTER+1))
+done < <(find ${TMP_DIR} -mindepth 1 -maxdepth 1 -print0 )
+
+echo ""
+
