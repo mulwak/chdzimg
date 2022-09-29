@@ -5,6 +5,31 @@
 # chdzutl本体に統合したい
 #
 
+set -e  # 失敗時点で終了
+
+# 変換パラメータ定数
+CONV_OPTS_DEFAULT="+dither"
+CONV_OPTS_ANIME="+dither -convolve 0,-1,0,-1,5,-1,0,-1,0"
+CONV_OPTS_DITHER=""
+CONV_OPTS=${CONV_OPTS_DEFAULT}
+
+# コマンドラインオプションの処理
+while getopts p: O
+do
+  case ${O} in
+    # parameter
+    p)  case ${OPTARG} in
+          anime)  CONV_OPTS=${CONV_OPTS_ANIME} ;;
+          dither) CONV_OPTS=${CONV_OPTS_DITHER} ;;
+        esac
+        break;;
+    # rate
+    r);;
+    *);;
+  esac
+done
+shift $((OPTIND-1))
+
 HOME_DIR="$(dirname "$(cd "$(dirname "${BASH_SOURCE:-$0}")" && pwd)")"
 SRC_FILE=${1}
 DST_FILE=${2}
@@ -12,20 +37,23 @@ DST_DIR=${DST_FILE%.*} # 統合動画ファイルが実現したら不要
 TMP_DIR=${HOME_DIR}/tmp
 COLORS_FILE=${HOME_DIR}"/colors16.png"
 
-CONV_OPTS_DEFAULT="+dither"
-CONV_OPTS_ANIME="+dither -convolve '0 -1 0, -1 5 -1, 0 -1 0'"
-CONV_OPTS_DITHER=""
-CONV_OPTS=${CONV_OPTS_DEFAULT}
-
 #echo "HOME_DIR:"$HOME_DIR
 #echo "SRC_FILE:"$SRC_FILE
 #echo "DST_FILE:"$DST_FILE
 #echo "DST_DIR:"$DST_DIR
 #echo "TMP_DIR :"$TMP_DIR
+#echo "CONV_OPTS:"$CONV_OPTS
+#echo ${CONV_OPTS}
+
+# 入出力先が存在しなければ何もしない
+if [ "${SRC_FILE}" = "" ] || [ "${DST_FILE}" = "" ];then
+  echo "Arg1:Source, Arg2:Output"
+  exit 1
+fi
 
 # 作業ディレクトリの用意
 mkdir ${TMP_DIR} -p
-rm ${TMP_DIR}/*
+rm ${TMP_DIR}/* -f
 
 # 出力ディレクトリの用意
 # 統合動画ファイルが実現したら不要
@@ -49,7 +77,7 @@ while read -d $'\0' fnum; do
   OUT_FILE=${DST_FILE%.*}"/"${OUT_FILE_NAME}.IMF
   #echo "PNG_FILE:"$PNG_FILE
   #echo "BMP_FILE:"$BMP_FILE
-  #echo -ne "OUT_FILE_NAME:"$OUT_FILE_NAME"\r"
+  #echo "OUT_FILE_NAME:"$OUT_FILE_NAME""
   #echo "OUT_FILE:"$OUT_FILE
 
   # 縮退減色bmp
