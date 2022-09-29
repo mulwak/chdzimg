@@ -14,7 +14,7 @@ CONV_OPTS_DITHER=""
 CONV_OPTS=${CONV_OPTS_DEFAULT}
 
 # コマンドラインオプションの処理
-while getopts p: O
+while getopts vr:p: O
 do
   case ${O} in
     # parameter
@@ -25,6 +25,8 @@ do
         break;;
     # rate
     r);;
+    # verbose
+    v)  OPT_VERBOSE=1;;
     *);;
   esac
 done
@@ -37,13 +39,14 @@ DST_DIR=${DST_FILE%.*} # 統合動画ファイルが実現したら不要
 TMP_DIR=${HOME_DIR}/tmp
 COLORS_FILE=${HOME_DIR}"/colors16.png"
 
-#echo "HOME_DIR:"$HOME_DIR
-#echo "SRC_FILE:"$SRC_FILE
-#echo "DST_FILE:"$DST_FILE
-#echo "DST_DIR:"$DST_DIR
-#echo "TMP_DIR :"$TMP_DIR
-#echo "CONV_OPTS:"$CONV_OPTS
-#echo ${CONV_OPTS}
+if [ "${OPT_VERBOSE}" = "1" ]; then
+  echo "HOME_DIR  :"$HOME_DIR
+  echo "SRC_FILE  :"$SRC_FILE
+  echo "DST_FILE  :"$DST_FILE
+  echo "DST_DIR   :"$DST_DIR
+  echo "TMP_DIR   :"$TMP_DIR
+  echo "CONV_OPTS :"$CONV_OPTS
+fi
 
 # 入出力先が存在しなければ何もしない
 if [ "${SRC_FILE}" = "" ] || [ "${DST_FILE}" = "" ];then
@@ -75,10 +78,13 @@ while read -d $'\0' fnum; do
   BMP_FILE=${TMP_DIR}"/"${BMP_FILE_NAME}
   OUT_FILE_NAME=${BMP_FILE_NAME%.*}
   OUT_FILE=${DST_FILE%.*}"/"${OUT_FILE_NAME}.IMF
-  #echo "PNG_FILE:"$PNG_FILE
-  #echo "BMP_FILE:"$BMP_FILE
-  #echo "OUT_FILE_NAME:"$OUT_FILE_NAME""
-  #echo "OUT_FILE:"$OUT_FILE
+
+  if [ "${OPT_VERBOSE}" = "1" ]; then
+    echo "PNG_FILE:"$PNG_FILE
+    echo "BMP_FILE:"$BMP_FILE
+    echo "OUT_FILE_NAME:"$OUT_FILE_NAME""
+    echo "OUT_FILE:"$OUT_FILE
+  fi
 
   # 縮退減色bmp
   convert ${PNG_FILE} ${CONV_OPTS} -map ${COLORS_FILE} -flip bmp3:${BMP_FILE}
