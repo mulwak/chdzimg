@@ -1,26 +1,189 @@
 #! /bin/bash
 
 #
-# 画像をChDzビデオカード用の形式に変換するユーティリティ
+# 画像、動画をchdz用に変換
 #
+
+set -e  # 失敗時点で終了
+
+# 変換パラメータ定数
+CONV_FLIP="-flip"
+CONV_OPTS_DEFAULT="+dither"
+CONV_OPTS_ANIME="+dither -convolve 0,-1,0,-1,5,-1,0,-1,0"
+CONV_OPTS_DITHER=""
+CONV_OPTS=${CONV_OPTS_DEFAULT}
+
+# コマンドラインオプションの処理
+while getopts Pmvr:p: O
+do
+  case ${O} in
+    # parameter
+    p)  case ${OPTARG} in
+          anime)  CONV_OPTS=${CONV_OPTS_ANIME} ;;
+          dither) CONV_OPTS=${CONV_OPTS_DITHER} ;;
+        esac
+        break;;
+    # rate
+    r);;
+    # verbose
+    v)  OPT_VERBOSE=1;;
+    # preview
+    P)  CONV_FLIP=""
+        OPT_PREVIEW="1";;
+    # movie
+    m)  OPT_MOVIE="1";;
+    *);;
+  esac
+done
+shift $((OPTIND-1))
 
 HOME_DIR="$(dirname "$(cd "$(dirname "${BASH_SOURCE:-$0}")" && pwd)")"
 SRC_FILE=${1}
 DST_FILE=${2}
+DST_DIR=${DST_FILE%.*} # 統合動画ファイルが実現したら不要
 TMP_DIR=${HOME_DIR}/tmp
-BMP_FILE_NAME=$(basename ${SRC_FILE%.*}).bmp
-BMP_FILE=${TMP_DIR}"/"${BMP_FILE_NAME}
 COLORS_FILE=${HOME_DIR}"/colors16.png"
 
-#echo "HOME_DIR:"$HOME_DIR
-#echo "SRC_FILE:"$SRC_FILE
-#echo "DST_FILE:"$DST_FILE
-#echo "TMP_DIR :"$TMP_DIR
-#echo "BMP_FILE_NAME:"$BMP_FILE_NAME
-#echo "BMP_FILE:"$BMP_FILE
+if [ "${OPT_VERBOSE}" = "1" ]; then
+  echo "HOME_DIR  :"$HOME_DIR
+  echo "SRC_FILE  :"$SRC_FILE
+  echo "DST_FILE  :"$DST_FILE
+  echo "DST_DIR   :"$DST_DIR
+  echo "TMP_DIR   :"$TMP_DIR
+  echo "CONV_OPTS :"$CONV_OPTS
+fi
 
+# 入出力先が存在しなければ何もしない
+if [ "${SRC_FILE}" = "" ] || [ "${DST_FILE}" = "" ];then
+  echo "Arg1:Source, Arg2:Output"
+  exit 1
+fi
+
+# 作業ディレクトリの用意
 mkdir ${TMP_DIR} -p
-convert +dither ${SRC_FILE} -map ${COLORS_FILE} -flip bmp3:${BMP_FILE}
+rm ${TMP_DIR}/* -f
 
-${HOME_DIR}/bin/bmp2nibble -4 ${BMP_FILE} ${DST_FILE}
+# 表示用出力オプション
+if [ "${OPT_PREVIEW}" = "" ]; then
+  if [ "${OPT_MOVIE}" = "1" ]; then
+    # 出力ディレクトリの用意
+    # 統合動画ファイルが実現したら不要
+    mkdir ${DST_DIR} -p
+    rm ${DST_DIR}/* -f
+  fi
+else
+  # 開くための関数
+  function __vimarg () {
+    local EXEARG=$(echo $@ | awk 'BEGIN{ORS} {
+      split($0,inarg)
+      for(i in inarg){
+        #print "[[DEBUG]inarg["i"]:"inarg[i]"]"
+        if(inarg[i]~/^-/){ # オプション引数は素通り
+          print(inarg[i])
+        }else{             # パス引数
+          "test -d "inarg[i]" ; echo $?" | getline ts
+          if (ts==0) {     # ディレクトリなら、そのままWindowsパスにする
+            print(winpath(inarg[i]))
+          }else{           # ファイルの場合、新規ファイルかもしれないのでディレクトリ部分だけwslpathに通す。
+            num=split(inarg[i],splpath,"/")
+            if (num==1) {  # カレントディレクトリならそれも必要なし
+              print(inarg[i])
+            }else{
+              base=substr(inarg[i],1,length(inarg[i])-length(splpath[num]))
+              print("'\''"winpath(base) "\\" splpath[num]"'\''")
+            }
+          }
+        }
+      }
+    }
+    function winpath(path,  wpath) {  # UNIXパスがWindowsパスになって返る魔法の関数。
+      #print "[[DEBUG]winpath:"path"]"
+      "wslpath -w "path"" | getline wpath
+      close("wslpath -w "path"")  #パイプ閉じ忘れがち
+      return wpath
+    }')
+    #echo "[DEBUG] \$EXEARG=" $EXEARG
+    echo $EXEARG
+  }
+fi
+
+# 映像の場合
+if [ "${OPT_MOVIE}" = "1" ]; then
+
+  # 連番画像にする
+  ffmpeg -loglevel warning -progress - -i ${SRC_FILE} -r 2 -t 90 -s 256:192 ${TMP_DIR}"/%04d.png" |
+    awk 'BEGIN{FS="="}/frame=/{printf("\rCroppedImage:%s",$2); system("");}'
+
+  echo ""
+
+  COUNTER=1 # 進捗表示用カウンタ
+
+  # 画像ごとのループ
+  while read -d $'\0' fnum; do
+    PNG_FILE=${fnum}
+    BMP_FILE_NAME=$(basename ${PNG_FILE%.*}).bmp
+    BMP_FILE=${TMP_DIR}"/"${BMP_FILE_NAME}
+
+    # 表示用出力オプション
+    if [ "${OPT_PREVIEW}" = "" ]; then
+      OUT_FILE_NAME=${BMP_FILE_NAME%.*}
+      OUT_FILE=${DST_FILE%.*}"/"${OUT_FILE_NAME}.IMF
+    fi
+
+    # 詳細表示オプション
+    if [ "${OPT_VERBOSE}" = "1" ]; then
+      echo "PNG_FILE:"$PNG_FILE
+      echo "BMP_FILE:"$BMP_FILE
+      echo "OUT_FILE_NAME:"$OUT_FILE_NAME""
+      echo "OUT_FILE:"$OUT_FILE
+    fi
+
+    # 縮退減色bmp
+    convert ${PNG_FILE} ${CONV_OPTS} -map ${COLORS_FILE} ${CONV_FLIP} bmp3:${BMP_FILE}
+
+    # 表示用出力オプション
+    if [ "${OPT_PREVIEW}" = "" ]; then
+      # chdz形式ニブルマップ
+      ${HOME_DIR}/bin/bmp2nibble ${BMP_FILE} ${OUT_FILE}
+    fi
+
+    # 進捗表示
+    echo -ne "\rImageConvert:"${COUNTER}
+    COUNTER=$((COUNTER+1))
+  done < <(find ${TMP_DIR} -mindepth 1 -maxdepth 1 -print0 )
+
+  echo ""
+
+  # 表示用出力オプション
+  if [ "${OPT_PREVIEW}" = "1" ]; then
+    # プレビュー動画作成
+    ffmpeg -loglevel warning -progress - -framerate 2 -i ${TMP_DIR}"/%04d.bmp"\
+      -vcodec libx264 -pix_fmt yuv420p -r 2 -s 1024x768 ${DST_FILE} |
+      awk 'BEGIN{FS="="}/frame=/{printf("\rPreview:%s",$2); system("");}'
+  fi
+
+# 画像の時
+else
+
+  BMP_FILE_NAME=$(basename ${SRC_FILE%.*}).bmp
+  BMP_FILE=${TMP_DIR}"/"${BMP_FILE_NAME}
+  if [ "${OPT_PREVIEW}" = "1" ]; then
+    BMP_FILE=${DST_FILE}
+  fi
+  # 縮退減色bmp
+  convert ${SRC_FILE} ${CONV_OPTS} -map ${COLORS_FILE} ${CONV_FLIP} bmp3:${BMP_FILE}
+  # 表示用出力オプション
+  if [ "${OPT_PREVIEW}" = "" ]; then
+    # chdz形式ニブルマップ
+    ${HOME_DIR}/bin/bmp2nibble ${BMP_FILE} ${DST_FILE}
+  fi
+
+fi
+
+# 表示用出力オプション
+if [ "${OPT_PREVIEW}" = "1" ]; then
+  # 開く
+  eval pwsh.exe "-c ii" $(__vimarg ${DST_FILE})
+  echo ""
+fi
 
