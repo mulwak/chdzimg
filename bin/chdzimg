@@ -12,9 +12,11 @@ CONV_OPTS_DEFAULT="+dither"
 CONV_OPTS_ANIME="+dither -convolve 0,-1,0,-1,5,-1,0,-1,0"
 CONV_OPTS_DITHER=""
 CONV_OPTS=${CONV_OPTS_DEFAULT}
+WIDTH="256"
+HEIGHT="192"
 
 # コマンドラインオプションの処理
-while getopts Pmvr:p: O
+while getopts s:Pmvr:p: O
 do
   case ${O} in
     # parameter
@@ -32,6 +34,11 @@ do
         OPT_PREVIEW="1";;
     # movie
     m)  OPT_MOVIE="1";;
+    # size
+    s)
+      WIDTH=$(echo "${OPTARG}"| awk 'BEGIN{FS="x"}{print $1}')
+      HEIGHT=$(echo "${OPTARG}"| awk 'BEGIN{FS="x"}{print $2}');;
+    s);;
     *);;
   esac
 done
@@ -51,6 +58,7 @@ if [ "${OPT_VERBOSE}" = "1" ]; then
   echo "DST_DIR   :"$DST_DIR
   echo "TMP_DIR   :"$TMP_DIR
   echo "CONV_OPTS :"$CONV_OPTS
+  echo "WIDTH     :"$WIDTH"  HEIGHT:"$HEIGHT
 fi
 
 # 入出力先が存在しなければ何もしない
@@ -111,7 +119,7 @@ fi
 if [ "${OPT_MOVIE}" = "1" ]; then
 
   # 連番画像にする
-  ffmpeg -loglevel warning -progress - -i ${SRC_FILE} -r 2 -t 90 -s 256:192 ${TMP_DIR}"/%04d.png" |
+  ffmpeg -loglevel warning -progress - -i ${SRC_FILE} -r 2 -t 90 -s ${WIDTH}x${HEIGHT} ${TMP_DIR}"/%04d.png" |
     awk 'BEGIN{FS="="}/frame=/{printf("\rCroppedImage:%s",$2); system("");}'
 
   echo ""
@@ -171,7 +179,7 @@ else
     BMP_FILE=${DST_FILE}
   fi
   # 縮退減色bmp
-  convert ${SRC_FILE} ${CONV_OPTS} -map ${COLORS_FILE} ${CONV_FLIP} bmp3:${BMP_FILE}
+  convert ${SRC_FILE} -scale ${WIDTH}x${HEIGHT} ${CONV_OPTS} -map ${COLORS_FILE} ${CONV_FLIP} bmp3:${BMP_FILE}
   # 表示用出力オプション
   if [ "${OPT_PREVIEW}" = "" ]; then
     # chdz形式ニブルマップ
