@@ -151,7 +151,7 @@ fi
 if [ "${OPT_MOVIE}" = "1" ]; then
 
   # 連番画像にする
-  ffmpeg -loglevel warning -progress - -i ${SRC_FILE} -r 2 \
+  ffmpeg -guess_layout_max 0 -loglevel warning -progress - -i ${SRC_FILE} -r 2 \
     ${OPT_START} ${OPT_TO} ${OPT_LENGTH} -s ${WIDTH}x${HEIGHT} ${TMP_DIR}"/%04d.png" |
     awk 'BEGIN{FS="="}/frame=/{printf("\rCroppedImage:%s",$2); system("");}'
 
