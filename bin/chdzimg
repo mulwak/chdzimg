@@ -21,6 +21,9 @@ Options:
   -m                convert video.
   -s size           set size. (WxH)
   -4                x4 mode. (not suitable for movie!)
+  -S                set movie start time. (mm:ss)
+  -T                set movie end time.   (mm:ss)
+  -l                set movie length from start. (mm:ss)
 EOF
 }
 
@@ -35,7 +38,7 @@ WIDTH="256"
 HEIGHT="192"
 
 # コマンドラインオプションの処理
-while getopts h4s:Pmvr:p: O
+while getopts S:T:l:h4s:Pmvr:p: O
 do
   case ${O} in
     # parameter
@@ -62,6 +65,12 @@ do
     # help
     h)  help
         exit 1;;
+    # Start
+    S)  OPT_START="-ss "${OPTARG};;
+    # To
+    T)  OPT_TO="-to "${OPTARG};;
+    # length
+    l)  OPT_LENGTH="-t "${OPTARG};;
     *);;
   esac
 done
@@ -142,7 +151,8 @@ fi
 if [ "${OPT_MOVIE}" = "1" ]; then
 
   # 連番画像にする
-  ffmpeg -loglevel warning -progress - -i ${SRC_FILE} -r 2 -t 90 -s ${WIDTH}x${HEIGHT} ${TMP_DIR}"/%04d.png" |
+  ffmpeg -loglevel warning -progress - -i ${SRC_FILE} -r 2 \
+    ${OPT_START} ${OPT_TO} ${OPT_LENGTH} -s ${WIDTH}x${HEIGHT} ${TMP_DIR}"/%04d.png" |
     awk 'BEGIN{FS="="}/frame=/{printf("\rCroppedImage:%s",$2); system("");}'
 
   echo ""
@@ -189,7 +199,7 @@ if [ "${OPT_MOVIE}" = "1" ]; then
   if [ "${OPT_PREVIEW}" = "1" ]; then
     # プレビュー動画作成
     ffmpeg -loglevel warning -progress - -framerate 2 -i ${TMP_DIR}"/%04d.bmp"\
-      -vcodec libx264 -pix_fmt yuv420p -r 2 -s 1024x768 ${DST_FILE} |
+      -vcodec libx264 -pix_fmt yuv420p -r 10 -s 1024x768 ${DST_FILE} |
       awk 'BEGIN{FS="="}/frame=/{printf("\rPreview:%s",$2); system("");}'
   fi
 
