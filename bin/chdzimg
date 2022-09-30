@@ -6,9 +6,28 @@
 
 set -e  # 失敗時点で終了
 
+function help {
+  cat <<EOF
+chdzutl converts images/movies to format compatible with Chiina-Dazzler VideoCard.
+
+Usage:
+  $(basename ${0}) [<options>] [inputfile] [outputfile]
+
+Options:
+  -h                print this.
+  -p presetname     set a color reduction quality. (anime/dither/sharp)
+  -v                print debug messages.
+  -P                preview without outputting in chdz format.
+  -m                convert video.
+  -s size           set size. (WxH)
+  -4                x4 mode. (not suitable for movie!)
+EOF
+}
+
 # 変換パラメータ定数
 CONV_FLIP="-flip"
 CONV_OPTS_DEFAULT="+dither"
+CONV_OPTS_SHARP="-convolve 0,-1,0,-1,5,-1,0,-1,0"
 CONV_OPTS_ANIME="+dither -convolve 0,-1,0,-1,5,-1,0,-1,0"
 CONV_OPTS_DITHER=""
 CONV_OPTS=${CONV_OPTS_DEFAULT}
@@ -16,13 +35,14 @@ WIDTH="256"
 HEIGHT="192"
 
 # コマンドラインオプションの処理
-while getopts s:Pmvr:p: O
+while getopts h4s:Pmvr:p: O
 do
   case ${O} in
     # parameter
     p)  case ${OPTARG} in
           anime)  CONV_OPTS=${CONV_OPTS_ANIME} ;;
           dither) CONV_OPTS=${CONV_OPTS_DITHER} ;;
+          sharp)  CONV_OPTS=${CONV_OPTS_SHARP} ;;
         esac
         break;;
     # rate
@@ -35,10 +55,13 @@ do
     # movie
     m)  OPT_MOVIE="1";;
     # size
-    s)
-      WIDTH=$(echo "${OPTARG}"| awk 'BEGIN{FS="x"}{print $1}')
-      HEIGHT=$(echo "${OPTARG}"| awk 'BEGIN{FS="x"}{print $2}');;
-    s);;
+    s)  WIDTH=$(echo "${OPTARG}"| awk 'BEGIN{FS="x"}{print $1}')
+        HEIGHT=$(echo "${OPTARG}"| awk 'BEGIN{FS="x"}{print $2}');;
+    # x4
+    4)  OPT_X4="1";;
+    # help
+    h)  help
+        exit 1;;
     *);;
   esac
 done
@@ -63,7 +86,7 @@ fi
 
 # 入出力先が存在しなければ何もしない
 if [ "${SRC_FILE}" = "" ] || [ "${DST_FILE}" = "" ];then
-  echo "Arg1:Source, Arg2:Output"
+  help
   exit 1
 fi
 
@@ -173,17 +196,25 @@ if [ "${OPT_MOVIE}" = "1" ]; then
 # 画像の時
 else
 
+  if [ "${OPT_X4}" = "1" ]; then
+    HEIGHT=$((HEIGHT*4))
+  fi
+
   BMP_FILE_NAME=$(basename ${SRC_FILE%.*}).bmp
   BMP_FILE=${TMP_DIR}"/"${BMP_FILE_NAME}
   if [ "${OPT_PREVIEW}" = "1" ]; then
     BMP_FILE=${DST_FILE}
   fi
   # 縮退減色bmp
-  convert ${SRC_FILE} -scale ${WIDTH}x${HEIGHT} ${CONV_OPTS} -map ${COLORS_FILE} ${CONV_FLIP} bmp3:${BMP_FILE}
-  # 表示用出力オプション
+  convert ${SRC_FILE} -scale ${WIDTH}x${HEIGHT}! ${CONV_OPTS} -map ${COLORS_FILE} ${CONV_FLIP} bmp3:${BMP_FILE}
+  # 出力用
   if [ "${OPT_PREVIEW}" = "" ]; then
     # chdz形式ニブルマップ
     ${HOME_DIR}/bin/bmp2nibble ${BMP_FILE} ${DST_FILE}
+  # 表示用で、四倍引き伸ばし
+  elif [ "${OPT_X4}" = "1" ]; then
+    WIDTH=$((WIDTH*4))
+    convert ${BMP_FILE} -scale ${WIDTH}x${HEIGHT}! -map ${COLORS_FILE} bmp3:${BMP_FILE}
   fi
 
 fi
@@ -192,6 +223,5 @@ fi
 if [ "${OPT_PREVIEW}" = "1" ]; then
   # 開く
   eval pwsh.exe "-c ii" $(__vimarg ${DST_FILE})
-  echo ""
 fi
 
