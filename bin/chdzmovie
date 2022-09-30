@@ -8,13 +8,14 @@
 set -e  # 失敗時点で終了
 
 # 変換パラメータ定数
+CONV_FLIP="-flip"
 CONV_OPTS_DEFAULT="+dither"
 CONV_OPTS_ANIME="+dither -convolve 0,-1,0,-1,5,-1,0,-1,0"
 CONV_OPTS_DITHER=""
 CONV_OPTS=${CONV_OPTS_DEFAULT}
 
 # コマンドラインオプションの処理
-while getopts vr:p: O
+while getopts svr:p: O
 do
   case ${O} in
     # parameter
@@ -27,6 +28,9 @@ do
     r);;
     # verbose
     v)  OPT_VERBOSE=1;;
+    # show
+    s)  CONV_FLIP=""
+        OPT_SHOW="1";;
     *);;
   esac
 done
@@ -58,10 +62,13 @@ fi
 mkdir ${TMP_DIR} -p
 rm ${TMP_DIR}/* -f
 
-# 出力ディレクトリの用意
-# 統合動画ファイルが実現したら不要
-mkdir ${DST_DIR} -p
-rm ${DST_DIR}/* -f
+# 表示用出力オプション
+if [ "${OPT_SHOW}" = "" ]; then
+  # 出力ディレクトリの用意
+  # 統合動画ファイルが実現したら不要
+  mkdir ${DST_DIR} -p
+  rm ${DST_DIR}/* -f
+fi
 
 # 連番画像にする
 ffmpeg -loglevel warning -progress - -i ${SRC_FILE} -r 2 -t 90 -s 256:192 ${TMP_DIR}"/%04d.png" |
@@ -76,9 +83,14 @@ while read -d $'\0' fnum; do
   PNG_FILE=${fnum}
   BMP_FILE_NAME=$(basename ${PNG_FILE%.*}).bmp
   BMP_FILE=${TMP_DIR}"/"${BMP_FILE_NAME}
-  OUT_FILE_NAME=${BMP_FILE_NAME%.*}
-  OUT_FILE=${DST_FILE%.*}"/"${OUT_FILE_NAME}.IMF
 
+  # 表示用出力オプション
+  if [ "${OPT_SHOW}" = "" ]; then
+    OUT_FILE_NAME=${BMP_FILE_NAME%.*}
+    OUT_FILE=${DST_FILE%.*}"/"${OUT_FILE_NAME}.IMF
+  fi
+
+  # 詳細表示オプション
   if [ "${OPT_VERBOSE}" = "1" ]; then
     echo "PNG_FILE:"$PNG_FILE
     echo "BMP_FILE:"$BMP_FILE
@@ -87,10 +99,13 @@ while read -d $'\0' fnum; do
   fi
 
   # 縮退減色bmp
-  convert ${PNG_FILE} ${CONV_OPTS} -map ${COLORS_FILE} -flip bmp3:${BMP_FILE}
+  convert ${PNG_FILE} ${CONV_OPTS} -map ${COLORS_FILE} ${CONV_FLIP} bmp3:${BMP_FILE}
 
-  # chdz形式ニブルマップ
-  ${HOME_DIR}/bin/bmp2nibble ${BMP_FILE} ${OUT_FILE}
+  # 表示用出力オプション
+  if [ "${OPT_SHOW}" = "" ]; then
+    # chdz形式ニブルマップ
+    ${HOME_DIR}/bin/bmp2nibble ${BMP_FILE} ${OUT_FILE}
+  fi
 
   # 進捗表示
   echo -ne "\rImageConvert:"${COUNTER}
@@ -98,4 +113,51 @@ while read -d $'\0' fnum; do
 done < <(find ${TMP_DIR} -mindepth 1 -maxdepth 1 -print0 )
 
 echo ""
+
+# 表示用出力オプション
+if [ "${OPT_SHOW}" = "1" ]; then
+  # プレビュー動画作成
+  ffmpeg -loglevel warning -progress - -framerate 2 -i ${TMP_DIR}"/%04d.bmp"\
+    -vcodec libx264 -pix_fmt yuv420p -r 2 -s 1024x768 ${DST_FILE} |
+    awk 'BEGIN{FS="="}/frame=/{printf("\rPreview:%s",$2); system("");}'
+
+  # 開くための関数
+  function __vimarg () {
+    local EXEARG=$(echo $@ | awk 'BEGIN{ORS} {
+      split($0,inarg)
+      for(i in inarg){
+        #print "[[DEBUG]inarg["i"]:"inarg[i]"]"
+        if(inarg[i]~/^-/){ # オプション引数は素通り
+          print(inarg[i])
+        }else{             # パス引数
+          "test -d "inarg[i]" ; echo $?" | getline ts
+          if (ts==0) {     # ディレクトリなら、そのままWindowsパスにする
+            print(winpath(inarg[i]))
+          }else{           # ファイルの場合、新規ファイルかもしれないのでディレクトリ部分だけwslpathに通す。
+            num=split(inarg[i],splpath,"/")
+            if (num==1) {  # カレントディレクトリならそれも必要なし
+              print(inarg[i])
+            }else{
+              base=substr(inarg[i],1,length(inarg[i])-length(splpath[num]))
+              print("'\''"winpath(base) "\\" splpath[num]"'\''")
+            }
+          }
+        }
+      }
+    }
+    function winpath(path,  wpath) {  # UNIXパスがWindowsパスになって返る魔法の関数。
+      #print "[[DEBUG]winpath:"path"]"
+      "wslpath -w "path"" | getline wpath
+      close("wslpath -w "path"")  #パイプ閉じ忘れがち
+      return wpath
+    }')
+    #echo "[DEBUG] \$EXEARG=" $EXEARG
+    echo $EXEARG
+  }
+
+  # 開く
+  eval pwsh.exe "-c ii" $(__vimarg ${DST_FILE})
+  echo ""
+fi
+
 
