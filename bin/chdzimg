@@ -36,9 +36,11 @@ CONV_OPTS_DITHER=""
 CONV_OPTS=${CONV_OPTS_DEFAULT}
 WIDTH="256"
 HEIGHT="192"
+SAMPLE_RATE="4"
+PLAY_RATE="3.7"
 
 # コマンドラインオプションの処理
-while getopts S:T:l:h4s:Pmvr:p: O
+while getopts r:S:T:l:h4s:Pmvr:p: O
 do
   case ${O} in
     # parameter
@@ -49,7 +51,7 @@ do
         esac
         break;;
     # rate
-    r);;
+    r)  SAMPLE_RATE=${OPTARG};;
     # verbose
     v)  OPT_VERBOSE=1;;
     # preview
@@ -151,7 +153,7 @@ fi
 if [ "${OPT_MOVIE}" = "1" ]; then
 
   # 連番画像にする
-  ffmpeg -guess_layout_max 0 -loglevel warning -progress - -i ${SRC_FILE} -r 2 \
+  ffmpeg -guess_layout_max 0 -loglevel warning -progress - -i ${SRC_FILE} -r ${SAMPLE_RATE} \
     ${OPT_START} ${OPT_TO} ${OPT_LENGTH} -s ${WIDTH}x${HEIGHT} ${TMP_DIR}"/%04d.png" |
     awk 'BEGIN{FS="="}/frame=/{printf("\rCroppedImage:%s",$2); system("");}'
 
@@ -198,8 +200,8 @@ if [ "${OPT_MOVIE}" = "1" ]; then
   # 表示用出力オプション
   if [ "${OPT_PREVIEW}" = "1" ]; then
     # プレビュー動画作成
-    ffmpeg -loglevel warning -progress - -framerate 2 -i ${TMP_DIR}"/%04d.bmp"\
-      -vcodec libx264 -pix_fmt yuv420p -r 10 -s 1024x768 ${DST_FILE} |
+    ffmpeg -loglevel warning -progress - -framerate ${PLAY_RATE} -i ${TMP_DIR}"/%04d.bmp"\
+      -vsync 1 -vcodec libx264 -pix_fmt yuv420p -s 1024x768 ${DST_FILE} |
       awk 'BEGIN{FS="="}/frame=/{printf("\rPreview:%s",$2); system("");}'
   fi
 
