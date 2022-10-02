@@ -15,7 +15,7 @@ Usage:
 
 Options:
   -h                print this.
-  -p presetname     set a color reduction quality. (anime/dither/sharp)
+  -p presetname     set a color reduction quality. (dither/sharp/=anime/sharp_dither/=sd)
   -v                print debug messages.
   -P                preview without outputting in chdz format.
   -m                convert video.
@@ -29,9 +29,9 @@ EOF
 
 # 変換パラメータ定数
 CONV_FLIP="-flip"
-CONV_OPTS_DEFAULT="+dither"
-CONV_OPTS_SHARP="-convolve 0,-1,0,-1,5,-1,0,-1,0"
-CONV_OPTS_ANIME="+dither -convolve 0,-1,0,-1,5,-1,0,-1,0"
+CONV_OPTS_NONE="+dither"
+CONV_OPTS_SHARP_DITHER="-convolve 0,-1,0,-1,5,-1,0,-1,0"
+CONV_OPTS_SHARP="+dither -convolve 0,-1,0,-1,5,-1,0,-1,0"
 CONV_OPTS_DITHER=""
 CONV_OPTS=${CONV_OPTS_DEFAULT}
 WIDTH="256"
@@ -45,9 +45,11 @@ do
   case ${O} in
     # parameter
     p)  case ${OPTARG} in
-          anime)  CONV_OPTS=${CONV_OPTS_ANIME} ;;
-          dither) CONV_OPTS=${CONV_OPTS_DITHER} ;;
-          sharp)  CONV_OPTS=${CONV_OPTS_SHARP} ;;
+          sharp_dither)   CONV_OPTS=${CONV_OPTS_SHARP_DITHER} ;;
+          sd)             CONV_OPTS=${CONV_OPTS_SHARP_DITHER} ;;
+          dither)         CONV_OPTS=${CONV_OPTS_DITHER} ;;
+          sharp)          CONV_OPTS=${CONV_OPTS_SHARP} ;;
+          anime)          CONV_OPTS=${CONV_OPTS_SHARP} ;;
         esac
         break;;
     # rate
@@ -203,6 +205,7 @@ if [ "${OPT_MOVIE}" = "1" ]; then
     ffmpeg -loglevel warning -progress - -framerate ${PLAY_RATE} -i ${TMP_DIR}"/%04d.bmp"\
       -vsync 1 -vcodec libx264 -pix_fmt yuv420p -s 1024x768 ${DST_FILE} |
       awk 'BEGIN{FS="="}/frame=/{printf("\rPreview:%s",$2); system("");}'
+    echo ""
   fi
 
 # 画像の時
