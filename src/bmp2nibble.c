@@ -109,7 +109,7 @@ int main(int argc, char *argv[])
         fprintf(stderr, "SRC_Read_Error@ i=%d, j=%d\n", i, j);
         close_and_exit();
       }
-      bytedata=chdzindex[(bytedata&0xF0>>4)]<<4 // 上位ニブル
+      bytedata=chdzindex[((bytedata&0xF0)>>4)]<<4 // 上位ニブル
               |chdzindex[bytedata&0x0F];        // 下位ニブル
       if(fwrite(&bytedata, sizeof(bytedata), 1, work_fileptr) != 1){
         fprintf(stderr, "DST_Write_Error@ i=%d, j=%d\n", i, j);
