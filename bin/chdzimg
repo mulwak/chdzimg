@@ -40,7 +40,7 @@ SAMPLE_RATE="4"
 PLAY_RATE="3.7"
 
 # コマンドラインオプションの処理
-while getopts r:S:T:l:h4s:Pmvr:p: O
+while getopts r:S:T:l:h4s:RPmvr:p: O
 do
   case ${O} in
     # parameter
@@ -75,6 +75,8 @@ do
     T)  OPT_TO="-to "${OPTARG};;
     # length
     l)  OPT_LENGTH="-t "${OPTARG};;
+    # raw
+    R)  OPT_RAW="1";;
     *);;
   esac
 done
@@ -221,7 +223,11 @@ else
     BMP_FILE=${DST_FILE}
   fi
   # 縮退減色bmp
-  convert ${SRC_FILE} -scale ${WIDTH}x${HEIGHT}! ${CONV_OPTS} -map ${COLORS_FILE} ${CONV_FLIP} bmp3:${BMP_FILE}
+  if [ "${OPT_RAW}" = "" ]; then
+    convert ${SRC_FILE} -scale ${WIDTH}x${HEIGHT}! ${CONV_OPTS} -map ${COLORS_FILE} ${CONV_FLIP} bmp3:${BMP_FILE}
+  else
+    convert ${SRC_FILE} +dither -map ${COLORS_FILE} ${CONV_FLIP} bmp3:${BMP_FILE}
+  fi
   # 出力用
   if [ "${OPT_PREVIEW}" = "" ]; then
     # chdz形式ニブルマップ
