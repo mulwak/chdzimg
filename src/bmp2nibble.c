@@ -132,11 +132,11 @@ int main(int argc, char *argv[])
       fseek(tmp_fileptr[i],0L,SEEK_SET);                // 先頭に戻る
       // 画面内ループ
       for(int j=0;j<(height*(width/2)/4);j++){
-        if(fread(&bytedata, sizeof(bytedata), 1, tmp_fileptr[i]) != 1){
+        if(fread(&bytedata, sizeof(bytedata), 1, tmp_fileptr[i]) != 1){   // 一時ファイルから読む
           fprintf(stderr, "TMP_Read_Error@ i=%d, j=%d\n", i, j);
           close_and_exit();
         }
-        if(fwrite(&bytedata, sizeof(bytedata), 1, tmp_fileptr[0]) != 1){
+        if(fwrite(&bytedata, sizeof(bytedata), 1, tmp_fileptr[0]) != 1){  // 出力ファイルに書く
           fprintf(stderr, "TMP_Write_Error@ i=%d, j=%d\n", i, j);
           close_and_exit();
         }

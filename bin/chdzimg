@@ -65,7 +65,8 @@ do
     s)  WIDTH=$(echo "${OPTARG}"| awk 'BEGIN{FS="x"}{print $1}')
         HEIGHT=$(echo "${OPTARG}"| awk 'BEGIN{FS="x"}{print $2}');;
     # x4
-    4)  OPT_X4="1";;
+    4)  OPT_X4="1"
+        B2NOPT="-4";;
     # help
     h)  help
         exit 1;;
@@ -191,7 +192,7 @@ if [ "${OPT_MOVIE}" = "1" ]; then
     # 表示用出力オプション
     if [ "${OPT_PREVIEW}" = "" ]; then
       # chdz形式ニブルマップ
-      ${HOME_DIR}/bin/bmp2nibble ${BMP_FILE} ${OUT_FILE}
+      ${HOME_DIR}/bin/bmp2nibble ${B2NOPT} ${BMP_FILE} ${OUT_FILE}
     fi
 
     # 進捗表示
@@ -231,7 +232,7 @@ else
   # 出力用
   if [ "${OPT_PREVIEW}" = "" ]; then
     # chdz形式ニブルマップ
-    ${HOME_DIR}/bin/bmp2nibble ${BMP_FILE} ${DST_FILE}
+    ${HOME_DIR}/bin/bmp2nibble ${B2NOPT} ${BMP_FILE} ${DST_FILE}
   # 表示用で、四倍引き伸ばし
   elif [ "${OPT_X4}" = "1" ]; then
     WIDTH=$((WIDTH*4))
