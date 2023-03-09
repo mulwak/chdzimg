@@ -36,7 +36,7 @@ CONV_OPTS_DITHER=""
 CONV_OPTS=${CONV_OPTS_DEFAULT}
 WIDTH="256"
 HEIGHT="192"
-SAMPLE_RATE="4"
+SAMPLE_RATE="5"
 PLAY_RATE="3.7"
 
 # コマンドラインオプションの処理
@@ -86,7 +86,7 @@ shift $((OPTIND-1))
 HOME_DIR="$(dirname "$(cd "$(dirname "${BASH_SOURCE:-$0}")" && pwd)")"
 SRC_FILE=${1}
 DST_FILE=${2}
-DST_DIR=${DST_FILE%.*} # 統合動画ファイルが実現したら不要
+#DST_DIR=${DST_FILE%.*} # 統合動画ファイルが実現したら不要
 TMP_DIR=${HOME_DIR}/tmp
 COLORS_FILE=${HOME_DIR}"/colors16.png"
 
@@ -94,7 +94,7 @@ if [ "${OPT_VERBOSE}" = "1" ]; then
   echo "HOME_DIR  :"$HOME_DIR
   echo "SRC_FILE  :"$SRC_FILE
   echo "DST_FILE  :"$DST_FILE
-  echo "DST_DIR   :"$DST_DIR
+#  echo "DST_DIR   :"$DST_DIR
   echo "TMP_DIR   :"$TMP_DIR
   echo "CONV_OPTS :"$CONV_OPTS
   echo "WIDTH     :"$WIDTH"  HEIGHT:"$HEIGHT
@@ -115,8 +115,10 @@ if [ "${OPT_PREVIEW}" = "" ]; then
   if [ "${OPT_MOVIE}" = "1" ]; then
     # 出力ディレクトリの用意
     # 統合動画ファイルが実現したら不要
-    mkdir ${DST_DIR} -p
-    rm ${DST_DIR}/* -f
+    #mkdir ${DST_DIR} -p
+    #rm ${DST_DIR}/* -f
+    # 連結していく元の空ファイル作成
+    : > ${DST_FILE}
   fi
 else
   # 開くための関数
@@ -171,28 +173,33 @@ if [ "${OPT_MOVIE}" = "1" ]; then
     PNG_FILE=${fnum}
     BMP_FILE_NAME=$(basename ${PNG_FILE%.*}).bmp
     BMP_FILE=${TMP_DIR}"/"${BMP_FILE_NAME}
+    BMPNG_FILE_NAME=$(basename ${PNG_FILE%.*}).png
+    BMPNG_FILE=${TMP_DIR}"/"${BMPNG_FILE_NAME}
+    TMP_FLAME_FILE=${TMP_DIR}"/tmp.imf"
 
     # 表示用出力オプション
-    if [ "${OPT_PREVIEW}" = "" ]; then
-      OUT_FILE_NAME=${BMP_FILE_NAME%.*}
-      OUT_FILE=${DST_FILE%.*}"/"${OUT_FILE_NAME}.IMF
-    fi
+    #if [ "${OPT_PREVIEW}" = "" ]; then
+    #  OUT_FILE_NAME=${BMP_FILE_NAME%.*}
+    #  OUT_FILE=${DST_FILE%.*}"/"${OUT_FILE_NAME}.IMF
+    #fi
 
     # 詳細表示オプション
     if [ "${OPT_VERBOSE}" = "1" ]; then
       echo "PNG_FILE:"$PNG_FILE
       echo "BMP_FILE:"$BMP_FILE
-      echo "OUT_FILE_NAME:"$OUT_FILE_NAME""
-      echo "OUT_FILE:"$OUT_FILE
+      #echo "OUT_FILE_NAME:"$OUT_FILE_NAME""
+      #echo "OUT_FILE:"$OUT_FILE
     fi
 
     # 縮退減色bmp
-    convert ${PNG_FILE} ${CONV_OPTS} -map ${COLORS_FILE} ${CONV_FLIP} bmp3:${BMP_FILE}
+    convert ${PNG_FILE} ${CONV_OPTS} -map ${COLORS_FILE} ${CONV_FLIP} ${BMPNG_FILE}
+    convert ${BMPNG_FILE} -depth 4 bmp3:${BMP_FILE}
 
     # 表示用出力オプション
     if [ "${OPT_PREVIEW}" = "" ]; then
       # chdz形式ニブルマップ
-      ${HOME_DIR}/bin/bmp2nibble ${B2NOPT} ${BMP_FILE} ${OUT_FILE}
+      ${HOME_DIR}/bin/bmp2nibble ${B2NOPT} ${BMP_FILE} ${TMP_FLAME_FILE}
+      cat ${TMP_FLAME_FILE} >> ${DST_FILE}
     fi
 
     # 進捗表示
@@ -220,14 +227,18 @@ else
 
   BMP_FILE_NAME=$(basename ${SRC_FILE%.*}).bmp
   BMP_FILE=${TMP_DIR}"/"${BMP_FILE_NAME}
+  BMPNG_FILE_NAME=$(basename ${SRC_FILE%.*}).png
+  BMPNG_FILE=${TMP_DIR}"/"${BMPNG_FILE_NAME}
   if [ "${OPT_PREVIEW}" = "1" ]; then
     BMP_FILE=${DST_FILE}
   fi
   # 縮退減色bmp
   if [ "${OPT_RAW}" = "" ]; then
-    convert ${SRC_FILE} -scale ${WIDTH}x${HEIGHT}! ${CONV_OPTS} -map ${COLORS_FILE} ${CONV_FLIP} bmp3:${BMP_FILE}
+    convert ${SRC_FILE} -scale ${WIDTH}x${HEIGHT}! ${CONV_OPTS} -map ${COLORS_FILE} ${CONV_FLIP} -depth 4 ${BMPNG_FILE}
+    convert ${BMPNG_FILE} -depth 4 bmp3:${BMP_FILE}
   else
-    convert ${SRC_FILE} +dither -map ${COLORS_FILE} ${CONV_FLIP} bmp3:${BMP_FILE}
+    convert ${SRC_FILE} +dither -map ${COLORS_FILE} ${CONV_FLIP} -depth 4 ${BMPNG_FILE}
+    convert ${BMPNG_FILE} -depth 4 bmp3:${BMP_FILE}
   fi
   # 出力用
   if [ "${OPT_PREVIEW}" = "" ]; then
@@ -236,7 +247,8 @@ else
   # 表示用で、四倍引き伸ばし
   elif [ "${OPT_X4}" = "1" ]; then
     WIDTH=$((WIDTH*4))
-    convert ${BMP_FILE} -scale ${WIDTH}x${HEIGHT}! -map ${COLORS_FILE} bmp3:${BMP_FILE}
+    convert ${BMP_FILE} -scale ${WIDTH}x${HEIGHT}! -map ${COLORS_FILE} ${BMPNG_FILE}
+    convert ${BMPNG_FILE} -depth 4 bmp3:${BMP_FILE}
   fi
 
 fi
