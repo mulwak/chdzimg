@@ -192,7 +192,7 @@ if [ "${OPT_MOVIE}" = "1" ]; then
     fi
 
     # 縮退減色bmp
-    convert ${PNG_FILE} ${CONV_OPTS} -map ${COLORS_FILE} ${CONV_FLIP} ${BMPNG_FILE}
+    convert ${PNG_FILE} ${CONV_OPTS} -map ${COLORS_FILE} ${CONV_FLIP} -depth 4 ${BMPNG_FILE}
     convert ${BMPNG_FILE} -depth 4 bmp3:${BMP_FILE}
 
     # 表示用出力オプション
