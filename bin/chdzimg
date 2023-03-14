@@ -36,8 +36,8 @@ CONV_OPTS_DITHER=""
 CONV_OPTS=${CONV_OPTS_DEFAULT}
 WIDTH="256"
 HEIGHT="192"
-SAMPLE_RATE="5"
-PLAY_RATE="3.7"
+SAMPLE_RATE="59/10"
+PLAY_RATE="59/10"
 
 # コマンドラインオプションの処理
 while getopts r:S:T:l:h4s:RPmvr:p: O
@@ -169,8 +169,9 @@ if [ "${OPT_MOVIE}" = "1" ]; then
   COUNTER=1 # 進捗表示用カウンタ
 
   # 画像ごとのループ
-  while read -d $'\0' fnum; do
-    PNG_FILE=${fnum}
+  ls ${TMP_DIR} -1 | sort | while read fnum; do
+  #while read -d $'\0' fnum; do
+    PNG_FILE=${TMP_DIR}"/"${fnum}
     BMP_FILE_NAME=$(basename ${PNG_FILE%.*}).bmp
     BMP_FILE=${TMP_DIR}"/"${BMP_FILE_NAME}
     BMPNG_FILE_NAME=$(basename ${PNG_FILE%.*}).png
@@ -192,8 +193,8 @@ if [ "${OPT_MOVIE}" = "1" ]; then
     fi
 
     # 縮退減色bmp
-    convert ${PNG_FILE} ${CONV_OPTS} -map ${COLORS_FILE} ${CONV_FLIP} -depth 4 ${BMPNG_FILE}
-    convert ${BMPNG_FILE} -depth 4 bmp3:${BMP_FILE}
+    convert ${PNG_FILE} ${CONV_OPTS} -map ${COLORS_FILE} ${CONV_FLIP} bmp3:${BMP_FILE}
+    #convert ${BMPNG_FILE} -depth 4 bmp3:${BMP_FILE}
 
     # 表示用出力オプション
     if [ "${OPT_PREVIEW}" = "" ]; then
@@ -205,7 +206,8 @@ if [ "${OPT_MOVIE}" = "1" ]; then
     # 進捗表示
     echo -ne "\rImageConvert:"${COUNTER}
     COUNTER=$((COUNTER+1))
-  done < <(find ${TMP_DIR} -mindepth 1 -maxdepth 1 -print0 )
+  #done < <(find ${TMP_DIR} -mindepth 1 -maxdepth 1 -print0 | sort)
+  done
 
   echo ""
 
