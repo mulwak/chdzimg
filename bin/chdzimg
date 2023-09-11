@@ -236,11 +236,13 @@ else
   fi
   # 縮退減色bmp
   if [ "${OPT_RAW}" = "" ]; then
-    convert ${SRC_FILE} -scale ${WIDTH}x${HEIGHT}! ${CONV_OPTS} -map ${COLORS_FILE} ${CONV_FLIP} -depth 4 ${BMPNG_FILE}
-    convert ${BMPNG_FILE} -depth 4 bmp3:${BMP_FILE}
+    convert ${SRC_FILE} -scale ${WIDTH}x${HEIGHT}! ${CONV_OPTS} ${CONV_FLIP} -map ${COLORS_FILE} -type Palette bmp3:${BMP_FILE}
+    #convert ${SRC_FILE} -scale ${WIDTH}x${HEIGHT}! ${CONV_OPTS} -map ${COLORS_FILE} ${CONV_FLIP} -define png:bit-depth=4 ${BMPNG_FILE}
+    #convert ${BMPNG_FILE} -depth 4 bmp3:${BMP_FILE}
   else
-    convert ${SRC_FILE} +dither -map ${COLORS_FILE} ${CONV_FLIP} -depth 4 ${BMPNG_FILE}
-    convert ${BMPNG_FILE} -depth 4 bmp3:${BMP_FILE}
+    convert ${SRC_FILE} +dither ${CONV_FLIP} -map ${COLORS_FILE} -type Palette bmp3:${BMP_FILE}
+    #convert ${SRC_FILE} +dither -map ${COLORS_FILE} ${CONV_FLIP} -define png:bit-depth=4 ${BMPNG_FILE}
+    #convert ${BMPNG_FILE} -depth 4 bmp3:${BMP_FILE}
   fi
   # 出力用
   if [ "${OPT_PREVIEW}" = "" ]; then
