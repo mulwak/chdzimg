@@ -24,6 +24,7 @@ Options:
   -S                set movie start time. (mm:ss)
   -T                set movie end time.   (mm:ss)
   -l                set movie length from start. (mm:ss)
+  -w                use ffmpeg.exe instead of linux ffmpeg command.
 EOF
 }
 
@@ -40,7 +41,7 @@ SAMPLE_RATE="5"
 PLAY_RATE="3.7"
 
 # コマンドラインオプションの処理
-while getopts r:S:T:l:h4s:RPmvr:p: O
+while getopts r:S:T:l:h4s:RPmvwr:p: O
 do
   case ${O} in
     # parameter
@@ -78,6 +79,8 @@ do
     l)  OPT_LENGTH="-t "${OPTARG};;
     # raw
     R)  OPT_RAW="1";;
+    # Windows ffmpeg.exe
+    w)  OPT_WINDOWS_FFMPEG="1";;
     *);;
   esac
 done
@@ -90,12 +93,20 @@ DST_FILE=${2}
 TMP_DIR=${HOME_DIR}/tmp
 COLORS_FILE=${HOME_DIR}"/colors16.png"
 
+FFMPEG_CMD="ffmpeg"
+FFMPEG_TMP_DIR=${TMP_DIR}
+if [ "${OPT_WINDOWS_FFMPEG}" = "1" ]; then
+  FFMPEG_CMD="ffmpeg.exe"
+  FFMPEG_TMP_DIR=$(wslpath -w ${TMP_DIR})
+fi
+
 if [ "${OPT_VERBOSE}" = "1" ]; then
   echo "HOME_DIR  :"$HOME_DIR
   echo "SRC_FILE  :"$SRC_FILE
   echo "DST_FILE  :"$DST_FILE
 #  echo "DST_DIR   :"$DST_DIR
   echo "TMP_DIR   :"$TMP_DIR
+  echo "FFMPEG_TMP_DIR:"$FFMPEG_TMP_DIR
   echo "CONV_OPTS :"$CONV_OPTS
   echo "WIDTH     :"$WIDTH"  HEIGHT:"$HEIGHT
 fi
@@ -160,8 +171,8 @@ fi
 if [ "${OPT_MOVIE}" = "1" ]; then
 
   # 連番画像にする
-  ffmpeg -guess_layout_max 0 -loglevel warning -progress - -i ${SRC_FILE} -r ${SAMPLE_RATE} \
-    ${OPT_START} ${OPT_TO} ${OPT_LENGTH} -s ${WIDTH}x${HEIGHT} ${TMP_DIR}"/%04d.png" |
+  ${FFMPEG_CMD} -guess_layout_max 0 -loglevel warning -progress - -i ${SRC_FILE} -r ${SAMPLE_RATE} \
+    ${OPT_START} ${OPT_TO} ${OPT_LENGTH} -s ${WIDTH}x${HEIGHT} ${FFMPEG_TMP_DIR}"/%04d.png" |
     awk 'BEGIN{FS="="}/frame=/{printf("\rCroppedImage:%s",$2); system("");}'
 
   echo ""
@@ -212,7 +223,7 @@ if [ "${OPT_MOVIE}" = "1" ]; then
   # 表示用出力オプション
   if [ "${OPT_PREVIEW}" = "1" ]; then
     # プレビュー動画作成
-    ffmpeg -loglevel warning -progress - -framerate ${PLAY_RATE} -i ${TMP_DIR}"/%04d.bmp"\
+    ${FFMPEG_CMD} -loglevel warning -progress - -framerate ${PLAY_RATE} -i ${FFMPEG_TMP_DIR}"/%04d.bmp"\
       -vsync 1 -vcodec libx264 -pix_fmt yuv420p -s 1024x768 ${DST_FILE} |
       awk 'BEGIN{FS="="}/frame=/{printf("\rPreview:%s",$2); system("");}'
     echo ""
