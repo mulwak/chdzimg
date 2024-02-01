@@ -24,6 +24,7 @@ Options:
   -S                set movie start time. (mm:ss)
   -T                set movie end time.   (mm:ss)
   -l                set movie length from start. (mm:ss)
+  -c                crop out when the size doesn't match to maintain the ratio
 EOF
 }
 
@@ -40,7 +41,7 @@ SAMPLE_RATE="59/10"
 PLAY_RATE="59/10"
 
 # コマンドラインオプションの処理
-while getopts r:S:T:l:h4s:RPmvr:p: O
+while getopts r:S:T:l:h4s:cRPmvr:p: O
 do
   case ${O} in
     # parameter
@@ -78,6 +79,8 @@ do
     l)  OPT_LENGTH="-t "${OPTARG};;
     # raw
     R)  OPT_RAW="1";;
+    # crop
+    c)  OPT_CROP="1";;
     *);;
   esac
 done
@@ -159,9 +162,18 @@ fi
 # 映像の場合
 if [ "${OPT_MOVIE}" = "1" ]; then
 
+  FILTER="scale="${WIDTH}":${HEIGHT}"
+  if [ "${OPT_CROP}" = "1" ]; then
+    FILTER=${FILTER}":force_original_aspect_ratio=increase,crop="${WIDTH}":${HEIGHT}"
+  fi
+
+  if [ "${OPT_VERBOSE}" = "1" ]; then
+    echo "MOVIE_FILETER:"$FILTER
+  fi
+
   # 連番画像にする
   ffmpeg -guess_layout_max 0 -loglevel warning -progress - -i ${SRC_FILE} -r ${SAMPLE_RATE} \
-    ${OPT_START} ${OPT_TO} ${OPT_LENGTH} -s ${WIDTH}x${HEIGHT} ${TMP_DIR}"/%04d.png" |
+    ${OPT_START} ${OPT_TO} ${OPT_LENGTH} -vf ${FILTER} ${TMP_DIR}"/%04d.png" |
     awk 'BEGIN{FS="="}/frame=/{printf("\rCroppedImage:%s",$2); system("");}'
 
   echo ""
